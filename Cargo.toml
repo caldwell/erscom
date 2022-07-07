@@ -1,0 +1,11 @@
+[package]
+name = "elden-ring-seamless-co-op-manager"
+version = "0.1.0"
+edition = "2021"
+
+[[bin]]
+path = "erscom.rs"
+name = "elden-ring-seamless-co-op-manager"
+
+[dependencies]
+slint = "0.2.5"
