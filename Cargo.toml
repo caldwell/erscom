@@ -9,3 +9,7 @@ name = "elden-ring-seamless-co-op-manager"
 
 [dependencies]
 slint = "0.2.5"
+reqwest = { version = "0.11", features = ["json", "cookies", "gzip", "brotli", "deflate"] }
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+tokio = { version = "1", features = ["full"] }

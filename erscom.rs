@@ -5,7 +5,10 @@
 
 use std::rc::Rc;
 
-fn main() {
+mod manage;
+
+#[tokio::main]
+async fn main() {
     let win = MainWindow::new();
     win.on_install(move |version| {
         println!("Installing {}", version);
@@ -16,9 +19,20 @@ fn main() {
     win.on_locate(move || {
         println!("Locating");
     });
+    win.on_exit(move || {
+        println!("Exiting");
+        slint::quit_event_loop();
+    });
+
     win.set_install_path("C:/blahblahblah/Steam/Something/Something/Elden Ring/Whatevs".into());
-    win.set_current_version("1.1".into());
-    win.set_available_versions(Rc::new(slint::VecModel::<slint::SharedString>::from(vec!["1.5".into(), "1.6".into(), "1.7".into(), "1.1".into()])).into());
+    win.set_current_version("v1.2.5".into());
+    match manage::get_releases().await {
+        Err(e) => { win.set_error(e.to_string().into()); },
+        Ok(mut releases) => {
+            releases.sort_by(|a,b| b.date.cmp(&a.date));
+            win.set_available_versions(Rc::new(slint::VecModel::<slint::SharedString>::from(releases.iter().map(|r| r.tag.clone().into()).collect::<Vec<slint::SharedString>>())).into());
+        }
+    };
     win.run();
 }
 
@@ -32,16 +46,18 @@ slint::slint! {
         callback install(string);
         callback launch;
         callback locate;
+        callback exit;
         property<string> install-path;
         property<string> current-version;
         property<[string]> available-versions;
+        property<string> error;
 
         title: "Elden Ring Seamless Co-op Manager";
         Rectangle {
             width: Math.max(parent.height,parent.width);
             height: Math.max(parent.height,parent.width);
             Image {
-                source: @image-url("eldenring.jpg");
+                source: root.error == "" ? @image-url("eldenring.jpg") : @image-url("youdied.png");
                 width: parent.height;
                 height: parent.height;
             }
@@ -58,6 +74,7 @@ slint::slint! {
                 border-width: 1px;
                 border-radius: 5px;
                 GridLayout {
+                    visible: root.error == "";
                     padding: 50px;
                     spacing: 10px;
                     Row {
@@ -88,7 +105,6 @@ slint::slint! {
                         }
                         cb := ComboBox {
                             model: root.available-versions;
-                            current-value: "1.7";
                         }
                         Button {
                             text: root.current-version == cb.current-value ? "Reinstall" : "Install";
@@ -107,6 +123,33 @@ slint::slint! {
                             }
 
                             enabled: root.install-path != "";
+                        }
+                    }
+                }
+                GridLayout {
+                    visible: root.error != "";
+                    padding: 50px;
+                    spacing: 10px;
+                    Row {
+                        LightText {
+                            text: "I'm terribly sorry but an error occurred!";
+                            font-size: 36px;
+                            font-weight: 900;
+                        }
+                    }
+                    Row {
+                        LightText {
+                            text: root.error;
+                            wrap: word-wrap;
+                            max-width: 720px;
+                        }
+                    }
+                    Row {
+                        Button {
+                            text: "Exit";
+                            clicked => {
+                                root.exit()
+                            }
                         }
                     }
                 }
