@@ -1,6 +1,6 @@
 // Copyright © 2022 David Caldwell <david@porkrind.org>
 
-// Do I need this???
+// This removes the ugly debug window that comes up on windows
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 use std::rc::Rc;
