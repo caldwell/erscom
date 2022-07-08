@@ -24,12 +24,15 @@ async fn main() {
         slint::quit_event_loop();
     });
 
-    win.set_install_path("C:/blahblahblah/Steam/Something/Something/Elden Ring/Whatevs".into());
+    let installdir = manage::autodetect_install_path();
+    win.set_install_path(installdir.unwrap_or("".to_string()).into());
+
     win.set_current_version("v1.2.5".into());
     match manage::get_releases().await {
         Err(e) => { win.set_error(e.to_string().into()); },
         Ok(mut releases) => {
             releases.sort_by(|a,b| b.date.cmp(&a.date));
+            //println!("Releases:\n{:?}", releases);
             win.set_available_versions(Rc::new(slint::VecModel::<slint::SharedString>::from(releases.iter().map(|r| r.tag.clone().into()).collect::<Vec<slint::SharedString>>())).into());
         }
     };
@@ -82,7 +85,7 @@ slint::slint! {
                             text: "Path:";
                         }
                         LightText {
-                            text: root.install-path;
+                            text: root.install-path == "" ? "<Not Found>" : root.install-path;
                         }
                         Button {
                             text: "Locate";

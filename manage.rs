@@ -45,3 +45,16 @@ pub async fn get_releases() -> Result<Vec<Release>, Box<dyn Error>> {
         }
     }).collect())
 }
+
+#[cfg(target_os = "windows")]
+pub fn autodetect_install_path() -> Option<String> {
+    let hklm = winreg::RegKey::predef(winreg::enums::HKEY_LOCAL_MACHINE);
+    hklm.open_subkey(r"SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\Steam App 1245620")
+        .and_then(|subkey| subkey.get_value::<String,_>("InstallLocation"))
+        .ok()
+}
+
+#[cfg(not(target_os = "windows"))]
+pub fn autodetect_install_path() -> Option<String> {
+    None
+}

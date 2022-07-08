@@ -998,6 +998,7 @@ dependencies = [
  "serde_json",
  "slint",
  "tokio",
+ "winreg 0.10.1",
 ]
 
 [[package]]
