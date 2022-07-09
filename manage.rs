@@ -75,10 +75,11 @@ impl Release {
         let mut zip = zip::ZipArchive::new(std::fs::File::open(&path)?).map_err(|e| format!("Couldn't read {}: {}", path.to_string_lossy(), e))?;
         for i in 0..zip.len() {
             let mut file = zip.by_index(i)?;
-            match file.enclosed_name() {
-                // Is there some platform way of comparing paths??
-                Some(name) if name.file_name().map(|n| n.to_string_lossy().to_lowercase()) != Some("cooppassword.ini".to_string()) && !file.is_dir() => {
-                    let dest_path = elden_dir.join(name);
+            if let Some(name) = file.enclosed_name() {
+              let dest_path = elden_dir.join(name);
+              match (dest_path.is_file(), file.is_dir(), name.extension().map(|n| n.to_string_lossy().to_lowercase()) == Some("ini".to_string())) {
+                (false, false, _) |
+                (true,  false, false) => {
                     println!("Filename: {}{}  -> {:?}", name.to_string_lossy(), if name.is_dir() { "/" } else { "" }, dest_path);
                     std::fs::create_dir_all(&dest_path.parent().ok_or(format!("No parent for {:?}??", dest_path))?)?;
                     let mut dest = std::fs::File::create(&dest_path).map_err(|e| format!("Error creating {:?}: {}", dest_path, e))?;
@@ -86,7 +87,8 @@ impl Release {
                         Err(format!("Error writing {:?}: {}", dest_path, e))?;
                     }
                 },
-                _ => { println!("Ignoring {}", file.name()) },
+                (_,_,_) => { println!("Ignoring {}", file.name()) },
+              }
             }
         }
         Ok(())
