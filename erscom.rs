@@ -25,7 +25,9 @@ async fn main() {
     });
 
     let installdir = manage::autodetect_install_path();
-    win.set_install_path(installdir.unwrap_or("".to_string()).into());
+    if let Some(ref p) = installdir {
+        win.set_install_path(p.to_string_lossy().into_owned().into());
+    }
 
     win.set_current_version("v1.2.5".into());
     match manage::get_releases() {
