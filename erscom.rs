@@ -72,6 +72,14 @@ fn get_releases(win: &MainWindow, installdir: Option<std::path::PathBuf>) {
                 }
             }
 
+            win.on_version_at_index({
+                let releases = releases.clone();
+                move |version_index| {
+                    let version = &releases.borrow()[version_index as usize];
+                    version.tag.clone().into()
+                }
+            });
+
             win.on_install({
                 let releases = releases.clone();
                 let installdir = installdir.expect("Can't happen").clone();
@@ -112,6 +120,7 @@ slint::slint! {
 
     MainWindow := Window {
         callback install(int);
+        callback version-at-index(int) -> string;
         callback launch;
         callback locate;
         callback exit;
@@ -178,7 +187,7 @@ slint::slint! {
                             model: root.available-versions;
                         }
                         Button {
-                            text: root.current-version == cb.current-value ? "Reinstall" : "Install";
+                            text: root.current-version == root.version-at-index(cb.current-index) ? "Reinstall" : "Install";
                             enabled: root.install-path != "";
                             clicked => {
                                 root.install(cb.current-index);
