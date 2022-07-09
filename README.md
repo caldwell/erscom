@@ -12,4 +12,4 @@ let you install one (without overwriting your `cooppassword.ini` file).
 
 [1]: https://github.com/LukeYui/EldenRingSeamlessCoopRelease
 [2]: https://github.com/LukeYui/EldenRingSeamlessCoopRelease/releases
-[3]: https://github.com/caldwell/erscom/releases
+[3]: https://github.com/caldwell/erscom/releases/latest
