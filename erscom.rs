@@ -11,9 +11,6 @@ mod manage;
 #[tokio::main]
 async fn main() {
     let win = MainWindow::new();
-    win.on_launch(move || {
-        println!("Launching");
-    });
     win.on_locate(move || {
         println!("Locating");
     });
@@ -28,6 +25,18 @@ async fn main() {
     }
 
     get_releases(&win, installdir.clone());
+
+    win.on_launch({
+        let weak_win = win.as_weak();
+        let installdir = installdir.clone();
+        move || {
+            let win = weak_win.unwrap();
+            let installdir = installdir.as_ref().unwrap(); // unwrap can't fail because ui won't call us unless it's Some
+            if let Err(e) = launch(installdir) {
+                win.set_error(e.to_string().into());
+            }
+        }
+    });
 
     win.on_refresh({
         let weak_win = win.as_weak();
@@ -76,6 +85,21 @@ fn get_releases(win: &MainWindow, installdir: Option<std::path::PathBuf>) {
             });
         }
     };
+}
+
+fn launch(installdir: &std::path::Path) -> Result<(), Box<dyn std::error::Error>> {
+    let exe = installdir.join("Game").join("launch_elden_ring_seamlesscoop.exe");
+    println!("Launching {:?}", &exe);
+    if !exe.is_file() {
+        Err(format!("Couldn't find {:?} to launch", exe))?;
+    }
+    let mut child = std::process::Command::new(exe.clone())
+        .current_dir(&exe.parent().ok_or(format!("Couldn't find parent directory for {}", &exe.display()))?)
+        .spawn().map_err(|e| format!("Launching {:?} failed: {}", &exe, e))?;
+    std::thread::spawn(move || {
+        let _ = child.wait(); // we really don't care if it failed
+    });
+    Ok(())
 }
 
 slint::slint! {
