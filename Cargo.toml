@@ -1,6 +1,6 @@
 [package]
 name = "elden-ring-seamless-co-op-manager"
-version = "0.1.0"
+version="0.0.0-this-is-not-the-version"
 edition = "2021"
 
 [[bin]]

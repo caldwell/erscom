@@ -47,6 +47,8 @@ async fn main() {
         }
     });
 
+    if let Some(v) = option_env!("VERSION") { win.set_my_version(v.into()); }
+
     win.run();
 }
 
@@ -118,8 +120,9 @@ slint::slint! {
         property<string> current-version;
         property<[string]> available-versions;
         property<string> error;
+        property<string> my-version: "0.0.0-local";
 
-        title: "Elden Ring Seamless Co-op Manager";
+        title: "Elden Ring Seamless Co-op Manager  v" + my-version;
         Rectangle {
             width: Math.max(parent.height,parent.width);
             height: Math.max(parent.height,parent.width);
