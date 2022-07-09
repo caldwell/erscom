@@ -25,18 +25,18 @@ struct GithubAsset {
     browser_download_url: String,
 }
 
-pub async fn get_releases() -> Result<Vec<Release>, Box<dyn Error>> {
-    let client = reqwest::Client::new();
+pub fn get_releases() -> Result<Vec<Release>, Box<dyn Error>> {
+    let client = reqwest::blocking::Client::new();
     let resp = client.get("https://api.github.com/repos/LukeYui/EldenRingSeamlessCoopRelease/releases")
         .header("Accept", "application/vnd.github+json")
         .header("User-Agent", "erscom 1.0")
-        .send().await?;
+        .send()?;
     let status = resp.status();
     if !status.is_success() {
-        Err(resp.text().await.unwrap_or(format!("Got status {}", status)))?;
+        Err(resp.text().unwrap_or(format!("Got status {}", status)))?;
         unreachable!();
     }
-    let response: Vec<GithubRelease> = resp.json().await?;
+    let response: Vec<GithubRelease> = resp.json()?;
     Ok(response.iter().map(|release| {
         Release {
             tag: release.tag_name.clone(),

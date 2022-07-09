@@ -28,7 +28,7 @@ async fn main() {
     win.set_install_path(installdir.unwrap_or("".to_string()).into());
 
     win.set_current_version("v1.2.5".into());
-    match manage::get_releases().await {
+    match manage::get_releases() {
         Err(e) => { win.set_error(e.to_string().into()); },
         Ok(mut releases) => {
             releases.sort_by(|a,b| b.date.cmp(&a.date));
