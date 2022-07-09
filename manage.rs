@@ -76,19 +76,19 @@ impl Release {
         for i in 0..zip.len() {
             let mut file = zip.by_index(i)?;
             if let Some(name) = file.enclosed_name() {
-              let dest_path = elden_dir.join(name);
-              match (dest_path.is_file(), file.is_dir(), name.extension().map(|n| n.to_string_lossy().to_lowercase()) == Some("ini".to_string())) {
-                (false, false, _) |
-                (true,  false, false) => {
-                    println!("Filename: {}{}  -> {:?}", name.to_string_lossy(), if name.is_dir() { "/" } else { "" }, dest_path);
-                    std::fs::create_dir_all(&dest_path.parent().ok_or(format!("No parent for {:?}??", dest_path))?)?;
-                    let mut dest = std::fs::File::create(&dest_path).map_err(|e| format!("Error creating {:?}: {}", dest_path, e))?;
-                    if let Err(e) = std::io::copy(&mut file, &mut dest) {
-                        Err(format!("Error writing {:?}: {}", dest_path, e))?;
-                    }
-                },
-                (_,_,_) => { println!("Ignoring {}", file.name()) },
-              }
+                let dest_path = elden_dir.join(name);
+                match (dest_path.is_file(), file.is_dir(), name.extension().map(|n| n.to_string_lossy().to_lowercase()) == Some("ini".to_string())) {
+                    (false, false, _) |
+                    (true,  false, false) => {
+                        println!("Filename: {}{}  -> {:?}", name.to_string_lossy(), if name.is_dir() { "/" } else { "" }, dest_path);
+                        std::fs::create_dir_all(&dest_path.parent().ok_or(format!("No parent for {:?}??", dest_path))?)?;
+                        let mut dest = std::fs::File::create(&dest_path).map_err(|e| format!("Error creating {:?}: {}", dest_path, e))?;
+                        if let Err(e) = std::io::copy(&mut file, &mut dest) {
+                            Err(format!("Error writing {:?}: {}", dest_path, e))?;
+                        }
+                    },
+                    (_,_,_) => { println!("Ignoring {}", file.name()) },
+                }
             }
         }
         Ok(())
