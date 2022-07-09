@@ -3,6 +3,7 @@
 // This removes the ugly debug window that comes up on windows
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
+use std::cell::RefCell;
 use std::rc::Rc;
 
 mod manage;
@@ -10,9 +11,6 @@ mod manage;
 #[tokio::main]
 async fn main() {
     let win = MainWindow::new();
-    win.on_install(move |version| {
-        println!("Installing {}", version);
-    });
     win.on_launch(move || {
         println!("Launching");
     });
@@ -29,16 +27,55 @@ async fn main() {
         win.set_install_path(p.to_string_lossy().into_owned().into());
     }
 
-    win.set_current_version("v1.2.5".into());
+    get_releases(&win, installdir.clone());
+
+    win.on_refresh({
+        let weak_win = win.as_weak();
+        move || {
+            let win = weak_win.unwrap();
+            println!("Refreshing");
+            get_releases(&win, installdir.clone());
+        }
+    });
+
+    win.run();
+}
+
+fn get_releases(win: &MainWindow, installdir: Option<std::path::PathBuf>) {
     match manage::get_releases() {
         Err(e) => { win.set_error(e.to_string().into()); },
-        Ok(mut releases) => {
-            releases.sort_by(|a,b| b.date.cmp(&a.date));
+        Ok(r) => {
+            let releases = Rc::new(RefCell::new(r));
+            releases.borrow_mut().sort_by(|a,b| b.date.cmp(&a.date));
             //println!("Releases:\n{:?}", releases);
-            win.set_available_versions(Rc::new(slint::VecModel::<slint::SharedString>::from(releases.iter().map(|r| r.tag.clone().into()).collect::<Vec<slint::SharedString>>())).into());
+            win.set_available_versions(Rc::new(slint::VecModel::<slint::SharedString>::from(releases.borrow().iter()
+                                                                                            .map(|r| format!("{}  --  {}  {}",
+                                                                                                             r.tag, r.date,
+                                                                                                             if r.downloaded() { "[ Downloaded ]" } else { "" }).into())
+                                                                                            .collect::<Vec<slint::SharedString>>())).into());
+
+            win.set_current_version("".into());
+            if let Some(ref installdir) = installdir {
+                if let Some(release) = releases.borrow().iter().find(|&release| release.installed(&installdir).unwrap_or(false)) {
+                    win.set_current_version(release.tag.clone().into());
+                }
+            }
+
+            win.on_install({
+                let releases = releases.clone();
+                let installdir = installdir.expect("Can't happen").clone();
+                let weak_win = win.as_weak();
+                move |version_index| {
+                    let win = weak_win.unwrap();
+                    let version = &releases.borrow()[version_index as usize];
+                    println!("Installing {}", version.tag);
+                    if let Err(e) = version.install(&installdir) {
+                        win.set_error(e.to_string().into());
+                    }
+                }
+            });
         }
     };
-    win.run();
 }
 
 slint::slint! {
@@ -48,10 +85,11 @@ slint::slint! {
     }
 
     MainWindow := Window {
-        callback install(string);
+        callback install(int);
         callback launch;
         callback locate;
         callback exit;
+        callback refresh;
         property<string> install-path;
         property<string> current-version;
         property<[string]> available-versions;
@@ -101,7 +139,7 @@ slint::slint! {
                             text: "Current Version:";
                         }
                         LightText {
-                            text: root.current-version;
+                            text: root.current-version == "" ? "<Unknown>" : root.current-version;
                         }
                     }
                     Row {
@@ -113,8 +151,11 @@ slint::slint! {
                         }
                         Button {
                             text: root.current-version == cb.current-value ? "Reinstall" : "Install";
+                            enabled: root.install-path != "";
                             clicked => {
-                                root.install(cb.current-value)
+                                root.install(cb.current-index);
+                                root.refresh();
+                                cb.current-value = cb.model[cb.current-index];
                             }
                             min-width: 1.5in;
                         }
