@@ -57,5 +57,7 @@ pub fn autodetect_install_path() -> Option<std::path::PathBuf> {
 
 #[cfg(not(target_os = "windows"))]
 pub fn autodetect_install_path() -> Option<std::path::PathBuf> {
-    None
+    Some(std::env::current_exe().unwrap()
+       .parent().unwrap()
+       .join("pretend-installdir"))
 }
