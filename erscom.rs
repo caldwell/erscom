@@ -152,6 +152,7 @@ slint::slint! {
                             text: root.install-path == "" ? "<Not Found>" : root.install-path;
                         }
                         Button {
+                            visible: false;
                             text: "Locate";
                             clicked => {
                                 root.locate()
