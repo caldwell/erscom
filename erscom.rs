@@ -54,7 +54,10 @@ async fn main() {
 
 fn get_releases(win: &MainWindow, installdir: Option<std::path::PathBuf>) {
     match manage::get_releases() {
-        Err(e) => { win.set_error(e.to_string().into()); },
+        Err(e) => {
+            win.set_error(e.to_string().into());
+            win.set_fatal_error(true);
+        },
         Ok(r) => {
             let releases = Rc::new(RefCell::new(r));
             releases.borrow_mut().sort_by(|a,b| b.date.cmp(&a.date));
@@ -129,6 +132,7 @@ slint::slint! {
         property<string> current-version;
         property<[string]> available-versions;
         property<string> error;
+        property<bool> fatal-error: false;
         property<string> my-version: "0.0.0-local";
 
         title: "Elden Ring Seamless Co-op Manager  v" + my-version;
@@ -229,9 +233,19 @@ slint::slint! {
                     }
                     Row {
                         Button {
+                            visible: root.fatal-error == true;
                             text: "Exit";
                             clicked => {
                                 root.exit()
+                            }
+                        }
+                    }
+                    Row {
+                        Button {
+                            visible: root.fatal-error == false;
+                            text: "Sigh... Ok";
+                            clicked => {
+                                root.error = ""
                             }
                         }
                     }
