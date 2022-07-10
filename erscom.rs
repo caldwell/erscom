@@ -12,9 +12,7 @@ mod ini;
 #[tokio::main]
 async fn main() {
     let win = MainWindow::new();
-    win.on_locate(move || {
-        println!("Locating");
-    });
+
     win.on_exit(move || {
         println!("Exiting");
         slint::quit_event_loop();
@@ -159,7 +157,6 @@ slint::slint! {
         callback version-at-index(int) -> string;
         callback changelog-at-index(int) -> string;
         callback launch;
-        callback locate;
         callback exit;
         callback refresh;
         callback new-password(string);
@@ -202,13 +199,6 @@ slint::slint! {
                         }
                         LightText {
                             text: root.install-path == "" ? "<Not Found>" : root.install-path;
-                        }
-                        Button {
-                            visible: false;
-                            text: "Locate";
-                            clicked => {
-                                root.locate()
-                            }
                         }
                     }
                     Row {
