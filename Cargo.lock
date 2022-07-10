@@ -1089,6 +1089,7 @@ checksum = "3f107b87b6afc2a64fd13cac55fe06d6c8859f12d4b14cbcdd2c67d0976781be"
 name = "elden-ring-seamless-co-op-manager"
 version = "0.0.0-this-is-not-the-version"
 dependencies = [
+ "regex",
  "reqwest",
  "serde",
  "serde_json",

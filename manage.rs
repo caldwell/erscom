@@ -158,6 +158,40 @@ impl EldenRingDir {
                           .join("pretend-installdir")))
     }
 
+    pub fn get_ini(&self) -> Option<std::path::PathBuf> {
+        let old = self.path().join("SeamlessCoop").join("cooppassword.ini");
+        let new = self.path().join("SeamlessCoop").join("seamlesscoopsettings.ini");
+
+        match (new.is_file(),old.is_file()) {
+            (true,  _)     => Some(new),
+            (false, true)  => Some(old),
+            (false, false) => None,
+        }
+    }
+
+    pub fn get_password(&self) -> Result<String, Box<dyn Error>> {
+        let ini_file = self.get_ini().ok_or(format!("Missing ini file in {}", self.0.join("SeamlessCoop").display()))?;
+        let ini = crate::ini::Ini::read(&ini_file)?;
+        Ok(ini.get("PASSWORD", "cooppassword").or(ini.get("SETTINGS", "cooppassword")).ok_or(format!("cooppassword setting not found in {}", ini_file.display()))?.to_string())
+    }
+
+    pub fn set_password(&self, password: &str) -> Result<(), Box<dyn Error>> {
+        let old = self.path().join("SeamlessCoop").join("cooppassword.ini");
+        let new = self.path().join("SeamlessCoop").join("seamlesscoopsettings.ini");
+
+        if old.is_file() { self.set_password_for(password, &old, "SETTINGS")?; }
+        if new.is_file() { self.set_password_for(password, &new, "PASSWORD")?; }
+        if !old.is_file() && !new.is_file() { Err(format!("No ini file to save password in!"))? }
+        Ok(())
+    }
+
+    pub fn set_password_for(&self, password: &str, ini_file: &std::path::Path, section: &str) -> Result<(), Box<dyn Error>> {
+        let mut ini = crate::ini::Ini::read(&ini_file)?;
+        ini.set(section, "cooppassword", password);
+        ini.write(&ini_file)?;
+        Ok(())
+    }
+
     pub fn path(&self) -> std::path::PathBuf {
         self.0.join("Game")
     }
