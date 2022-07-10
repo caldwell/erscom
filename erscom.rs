@@ -19,9 +19,9 @@ async fn main() {
         slint::quit_event_loop();
     });
 
-    let installdir = manage::autodetect_install_path();
+    let installdir = manage::EldenRingDir::autodetect_install_path();
     if let Some(ref p) = installdir {
-        win.set_install_path(p.to_string_lossy().into_owned().into());
+        win.set_install_path(p.display().into());
     }
 
     get_releases(&win, installdir.clone());
@@ -52,7 +52,7 @@ async fn main() {
     win.run();
 }
 
-fn get_releases(win: &MainWindow, installdir: Option<std::path::PathBuf>) {
+fn get_releases(win: &MainWindow, installdir: Option<manage::EldenRingDir>) {
     match manage::get_releases() {
         Err(e) => {
             win.set_error(e.to_string().into());
@@ -100,8 +100,8 @@ fn get_releases(win: &MainWindow, installdir: Option<std::path::PathBuf>) {
     };
 }
 
-fn launch(installdir: &std::path::Path) -> Result<(), Box<dyn std::error::Error>> {
-    let exe = installdir.join("Game").join("launch_elden_ring_seamlesscoop.exe");
+fn launch(installdir: &manage::EldenRingDir) -> Result<(), Box<dyn std::error::Error>> {
+    let exe = installdir.path().join("launch_elden_ring_seamlesscoop.exe");
     println!("Launching {:?}", &exe);
     if !exe.is_file() {
         Err(format!("Couldn't find {:?} to launch", exe))?;

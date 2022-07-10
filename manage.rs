@@ -46,37 +46,20 @@ pub fn get_releases() -> Result<Vec<Release>, Box<dyn Error>> {
     }).collect())
 }
 
-#[cfg(target_os = "windows")]
-pub fn autodetect_install_path() -> Option<std::path::PathBuf> {
-    let hklm = winreg::RegKey::predef(winreg::enums::HKEY_LOCAL_MACHINE);
-    hklm.open_subkey(r"SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\Steam App 1245620")
-        .and_then(|subkey| subkey.get_value::<std::ffi::OsString,_>("InstallLocation"))
-        .map(|oss| std::path::Path::new(&oss).to_path_buf())
-        .ok()
-}
-
-#[cfg(not(target_os = "windows"))]
-pub fn autodetect_install_path() -> Option<std::path::PathBuf> {
-    Some(std::env::current_exe().unwrap()
-       .parent().unwrap()
-       .join("pretend-installdir"))
-}
-
 impl Release {
-    pub fn install(&self, installdir: &std::path::Path) -> Result<(), Box<dyn Error>> {
+    pub fn install(&self, installdir: &EldenRingDir) -> Result<(), Box<dyn Error>> {
         let path = self.download()?;
         println!("Local zip: {}", path.to_string_lossy());
 
-        let elden_dir = installdir.join("Game");
-        if !std::fs::metadata(&installdir).map_err(|e| format!("Error reading {:?}: {}", elden_dir, e))?.is_dir() {
-            Err(format!("{:?} is not a directory!", elden_dir))?;
+        if !std::fs::metadata(&installdir.path()).map_err(|e| format!("Error reading {:?}: {}", installdir, e))?.is_dir() {
+            Err(format!("{} is not a directory!", installdir))?;
         }
 
         let mut zip = zip::ZipArchive::new(std::fs::File::open(&path)?).map_err(|e| format!("Couldn't read {}: {}", path.to_string_lossy(), e))?;
         for i in 0..zip.len() {
             let mut file = zip.by_index(i)?;
             if let Some(name) = file.enclosed_name() {
-                let dest_path = elden_dir.join(name);
+                let dest_path = installdir.path().join(name);
                 match (file.is_dir(), dest_path.is_file(), name.extension().map(|n| n.to_string_lossy().to_lowercase()) == Some("ini".to_string())) {
                     (false, false, _) |
                     (false, true,  false) => {
@@ -94,12 +77,12 @@ impl Release {
         Ok(())
     }
 
-    pub fn installed(&self, installdir: &std::path::Path) -> Option<bool> {
+    pub fn installed(&self, installdir: &EldenRingDir) -> Option<bool> {
         use std::io::Read;
         if !self.downloaded() {
             return None;
         }
-        let disk_path = installdir.join("Game").join("SeamlessCoop").join("elden_ring_seamless_coop.dll");
+        let disk_path = installdir.path().join("SeamlessCoop").join("elden_ring_seamless_coop.dll");
         let mut disk_file = std::fs::File::open(&disk_path).ok()?;
         let mut disk_dll = Vec::new();
         disk_file.read_to_end(&mut disk_dll).ok()?;
@@ -153,6 +136,41 @@ impl Release {
         Ok(path)
     }
 
+}
+
+#[derive(Clone, Debug)]
+pub struct EldenRingDir(std::path::PathBuf);
+
+impl EldenRingDir {
+    #[cfg(target_os = "windows")]
+    pub fn autodetect_install_path() -> Option<EldenRingDir> {
+        let hklm = winreg::RegKey::predef(winreg::enums::HKEY_LOCAL_MACHINE);
+        hklm.open_subkey(r"SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\Steam App 1245620")
+            .and_then(|subkey| subkey.get_value::<std::ffi::OsString,_>("InstallLocation"))
+            .map(|oss| EldenRingDir(std::path::Path::new(&oss).to_path_buf()))
+            .ok()
+    }
+
+    #[cfg(not(target_os = "windows"))]
+    pub fn autodetect_install_path() -> Option<EldenRingDir> {
+        Some(EldenRingDir(std::env::current_exe().unwrap()
+                          .parent().unwrap()
+                          .join("pretend-installdir")))
+    }
+
+    pub fn path(&self) -> std::path::PathBuf {
+        self.0.join("Game")
+    }
+
+    pub fn display(&self) -> String {
+        self.0.to_string_lossy().into_owned()
+    }
+}
+
+impl std::fmt::Display for EldenRingDir {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.0.display())
+    }
 }
 
 // Stolen from https://users.rust-lang.org/t/append-an-additional-extension/23586/12
