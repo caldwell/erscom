@@ -189,6 +189,8 @@ slint::slint! {
 
         title: "Elden Ring Seamless Co-op Manager  v" + my-version;
         default-font-size: 16px;
+        max-width: 10000px;
+
         Rectangle {
             width: Math.max(parent.height,parent.width);
             height: Math.max(parent.height,parent.width);
