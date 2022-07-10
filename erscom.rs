@@ -59,6 +59,10 @@ async fn main() {
         }
     });
 
+    win.on_open_homepage(|| {
+        let _ = webbrowser::open("https://github.com/caldwell/erscom");
+    });
+
     if let Some(v) = option_env!("VERSION") { win.set_my_version(v.into()); }
 
     win.run();
@@ -160,6 +164,7 @@ slint::slint! {
         callback exit;
         callback refresh;
         callback new-password(string);
+        callback open-homepage();
         property<string> install-path;
         property<string> current-version;
         property<[string]> available-versions;
@@ -331,6 +336,40 @@ slint::slint! {
                         }
                     }
                 }
+            }
+        }
+        HorizontalLayout {
+            y: parent.height - height;
+            height: 12px;
+            alignment: end;
+
+            Rectangle {
+                background: black;
+                HorizontalLayout {
+                    padding-left: 3px;
+                    spacing: 3px;
+                    alignment: start;
+                    copyright := Text {
+                        font-size: 10px;
+                        color: white;
+                        text: "© 2022 David Caldwell";
+                    }
+                    octocat := Image {
+                        colorize: white;
+                        source: @image-url("github.svg");
+                        height: 9px;
+                        width: 9px;
+                    }
+                }
+                TouchArea {
+                    clicked => {
+                        root.open-homepage();
+                    }
+                }
+            }
+            Rectangle { // spacer
+                background: black;
+                width: 30px;
             }
         }
     }
