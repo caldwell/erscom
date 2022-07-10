@@ -101,6 +101,14 @@ fn get_releases(win: &MainWindow, installdir: Option<manage::EldenRingDir>) {
                 }
             });
 
+            win.on_changelog_at_index({
+                let releases = releases.clone();
+                move |version_index| {
+                    let version = &releases.borrow()[version_index as usize];
+                    version.changelog.clone().into()
+                }
+            });
+
             win.on_install({
                 let releases = releases.clone();
                 let installdir = installdir.expect("Can't happen").clone();
@@ -134,14 +142,22 @@ fn launch(installdir: &manage::EldenRingDir) -> Result<(), Box<dyn std::error::E
 }
 
 slint::slint! {
-    import { Button, ComboBox, LineEdit } from "std-widgets.slint";
+    import { Button, ComboBox, LineEdit, ScrollView } from "std-widgets.slint";
     LightText := Text {
         color: white;
+    }
+
+    Frame := Rectangle {
+        background: #000000aa;
+        border-color: #000000;
+        border-width: 1px;
+        border-radius: 5px;
     }
 
     MainWindow := Window {
         callback install(int);
         callback version-at-index(int) -> string;
+        callback changelog-at-index(int) -> string;
         callback launch;
         callback locate;
         callback exit;
@@ -168,16 +184,14 @@ slint::slint! {
             }
         }
         VerticalLayout {
-            padding-top: 150px;
-            padding-bottom: 250px;
+            padding-top: 180px;
+            padding-bottom: 30px;
             padding-left: 30px;
             padding-right: 30px;
+            spacing: 30px;
 
-            Rectangle {
-                background: #000000aa;
-                border-color: #000000;
-                border-width: 1px;
-                border-radius: 5px;
+            Frame {
+                vertical-stretch: 0;
                 GridLayout {
                     visible: root.error == "";
                     padding: 50px;
@@ -211,6 +225,9 @@ slint::slint! {
                         }
                         cb := ComboBox {
                             model: root.available-versions;
+                            selected => {
+                                changelog-scroll.viewport-y = 0;
+                            }
                         }
                         Button {
                             text: root.current-version == root.version-at-index(cb.current-index) ? "Reinstall" : "Install";
@@ -297,6 +314,30 @@ slint::slint! {
                             clicked => {
                                 root.error = ""
                             }
+                        }
+                    }
+                }
+            }
+            Frame {
+                VerticalLayout {
+                    spacing: 10px;
+                    padding: 50px;
+                    LightText {
+                        font-size: 24px;
+                        font-weight: 750;
+                        text: root.version-at-index(cb.current-index) + " Release Notes";
+                    }
+                    changelog-scroll := ScrollView {
+                        min-height:changelog.font-size*10;
+                        viewport-height: changelog.height;
+
+                        changelog := LightText {
+                            font-size: 16px;
+                            vertical-stretch: 1;
+                            x: 5px;
+                            width: parent.width - 25px;
+                            wrap: word-wrap;
+                            text: root.changelog-at-index(cb.current-index);
                         }
                     }
                 }

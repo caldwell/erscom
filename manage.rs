@@ -9,6 +9,7 @@ pub struct Release {
     pub tag: String,
     pub url: String,
     pub date: String,
+    pub changelog: String,
 }
 
 // These are the parts of the github release api that we care about.
@@ -17,6 +18,7 @@ pub struct Release {
 struct GithubRelease {
     tag_name: String,
     published_at: String,
+    body: String,
     assets: Vec<GithubAsset>,
 }
 
@@ -42,6 +44,7 @@ pub fn get_releases() -> Result<Vec<Release>, Box<dyn Error>> {
             tag: release.tag_name.clone(),
             url: release.assets[0].browser_download_url.clone(),
             date: release.published_at.clone(),
+            changelog: release.body.clone(),
         }
     }).collect())
 }
