@@ -193,7 +193,8 @@ slint::slint! {
             width: Math.max(parent.height,parent.width);
             height: Math.max(parent.height,parent.width);
             Image {
-                source: root.error == "" ? @image-url("eldenring.jpg") : @image-url("youdied.png");
+                source: root.error == "" ? @image-url("assets/eldenring.jpg") : @image-url("assets/youdied.png");
+                image-fit: cover;
                 width: parent.height;
                 height: parent.height;
             }
@@ -265,7 +266,7 @@ slint::slint! {
                         Rectangle {
                             Image {
                                 colorize: white;
-                                source: root.show-password ? @image-url("eye-slash-fill.svg") : @image-url("eye-fill.svg");
+                                source: root.show-password ? @image-url("assets/eye-slash-fill.svg") : @image-url("assets/eye-fill.svg");
                                 image-fit: cover;
                                 width: parent.height;
                             }
@@ -369,7 +370,7 @@ slint::slint! {
                     }
                     octocat := Image {
                         colorize: white;
-                        source: @image-url("github.svg");
+                        source: @image-url("assets/github.svg");
                         height: 9px;
                         width: 9px;
                     }
