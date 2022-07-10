@@ -157,6 +157,7 @@ slint::slint! {
         property password <=> pass.text;
 
         title: "Elden Ring Seamless Co-op Manager  v" + my-version;
+        default-font-size: 16px;
         Rectangle {
             width: Math.max(parent.height,parent.width);
             height: Math.max(parent.height,parent.width);
