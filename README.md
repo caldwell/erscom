@@ -10,6 +10,11 @@ let you install one (without overwriting your `cooppassword.ini` file).
 
 [Get the latest release here][3].
 
+Screenshot
+----------
+
+![Screenshot](assets/screenshot.png)
+
 [1]: https://github.com/LukeYui/EldenRingSeamlessCoopRelease
 [2]: https://github.com/LukeYui/EldenRingSeamlessCoopRelease/releases
 [3]: https://github.com/caldwell/erscom/releases/latest
