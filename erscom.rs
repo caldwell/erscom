@@ -330,6 +330,7 @@ slint::slint! {
                 }
             }
             Frame {
+                visible: root.error == "";
                 VerticalLayout {
                     spacing: 10px;
                     padding: 50px;
