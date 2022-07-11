@@ -8,7 +8,7 @@ It should auto-detect your Elden Ring install directory, pull down the
 current list of mod versions available on the [Github releases page][2], and
 let you install one (without overwriting your `cooppassword.ini` file).
 
-[Get the latest release here][3].
+[Get the latest release here][3] (the .exe download under "Assets").
 
 Screenshot
 ----------
