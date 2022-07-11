@@ -72,11 +72,13 @@ async fn main() {
         }
     });
 
-    win.on_open_homepage(|| {
-        let _ = webbrowser::open("https://github.com/caldwell/erscom");
+    win.on_open_url(|url| {
+        let _ = webbrowser::open(&url);
     });
 
     if let Some(v) = option_env!("VERSION") { win.set_my_version(v.into()); }
+
+    if let Some(v) = manage::self_upgrade_version().unwrap_or(None) { win.set_my_upgrade_version(v.into()) }
 
     win.run();
 }
@@ -177,13 +179,14 @@ slint::slint! {
         callback exit;
         callback refresh;
         callback new-password(string);
-        callback open-homepage();
+        callback open-url(string);
         property<string> install-path;
         property<string> current-version;
         property<[string]> available-versions;
         property<string> error;
         property<bool> fatal-error: false;
         property<string> my-version: "0.0.0-local";
+        property<string> my-upgrade-version: "";
         property<bool> show-password: false;
         property password <=> pass.text;
 
@@ -380,13 +383,41 @@ slint::slint! {
                 }
                 TouchArea {
                     clicked => {
-                        root.open-homepage();
+                        root.open-url("https://github.com/caldwell/erscom");
                     }
                 }
             }
             Rectangle { // spacer
                 background: black;
                 width: 30px;
+            }
+        }
+        if root.my-upgrade-version != "" : Rectangle {
+            height: 20px;
+            background: black;
+            HorizontalLayout {
+                alignment: center;
+                HorizontalLayout {
+                    alignment: start;
+                    spacing: 5px;
+                    Image {
+                        colorize: white;
+                        source: @image-url("assets/cloud-arrow-down-fill.svg");
+                        width: 20px;
+                        height: 20px;
+                    }
+                    Text {
+                        text: "Download New Launcher Version "+root.my-upgrade-version;
+                        color: white;
+                        font-size: 18px;
+                        font-weight: 700;
+                    }
+                }
+            }
+            TouchArea {
+                clicked => {
+                    root.open-url("https://github.com/caldwell/erscom/releases/latest");
+                }
             }
         }
     }

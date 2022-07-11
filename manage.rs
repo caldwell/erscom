@@ -40,9 +40,9 @@ struct GithubAsset {
     browser_download_url: String,
 }
 
-pub fn get_releases() -> Result<Vec<Release>, Box<dyn Error>> {
+fn github_releases(project: &str) -> Result<Vec<GithubRelease>, Box<dyn Error>> {
     let client = reqwest::blocking::Client::new();
-    let resp = client.get("https://api.github.com/repos/LukeYui/EldenRingSeamlessCoopRelease/releases")
+    let resp = client.get(&format!("https://api.github.com/repos/{}/releases", project))
         .header("Accept", "application/vnd.github+json")
         .header("User-Agent", "erscom 1.0")
         .send()?;
@@ -51,8 +51,21 @@ pub fn get_releases() -> Result<Vec<Release>, Box<dyn Error>> {
         Err(resp.text().unwrap_or(format!("Got status {}", status)))?;
         unreachable!();
     }
-    let response: Vec<GithubRelease> = resp.json()?;
-    Ok(response.iter().map(|release| {
+    Ok(resp.json()?)
+}
+
+pub fn self_upgrade_version() -> Result<Option<String>, Box<dyn Error>> {
+    if let Some(current_version) = option_env!("VERSION") {
+        let my_releases = github_releases("caldwell/erscom")?;
+        if my_releases.first().map(|r| &r.tag_name) != Some(&current_version.to_string()) {
+            return Ok(Some(my_releases.first().unwrap().tag_name.clone()));
+        }
+    }
+    Ok(None)
+}
+
+pub fn get_releases() -> Result<Vec<Release>, Box<dyn Error>> {
+    Ok(github_releases("LukeYui/EldenRingSeamlessCoopRelease")?.iter().map(|release| {
         Release {
             tag: release.tag_name.clone(),
             url: release.assets[0].browser_download_url.clone(),
