@@ -126,9 +126,9 @@ fn get_releases(win: &MainWindow, installdir: Option<manage::EldenRingDir>) {
                 }
             });
 
-            win.on_install({
+            if let Some(installdir) = installdir {
+              win.on_install({
                 let releases = releases.clone();
-                let installdir = installdir.expect("Can't happen").clone();
                 let weak_win = win.as_weak();
                 move |version_index| {
                     let win = weak_win.unwrap();
@@ -138,7 +138,8 @@ fn get_releases(win: &MainWindow, installdir: Option<manage::EldenRingDir>) {
                         win.set_error(e.to_string().into());
                     }
                 }
-            });
+              });
+            }
         }
     };
 }
