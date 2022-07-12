@@ -174,10 +174,13 @@ impl EldenRingDir {
     #[cfg(target_os = "windows")]
     pub fn autodetect_install_path() -> Option<EldenRingDir> {
         let hklm = winreg::RegKey::predef(winreg::enums::HKEY_LOCAL_MACHINE);
+        // Find the install dir in the registry
         hklm.open_subkey(r"SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\Steam App 1245620")
             .and_then(|subkey| subkey.get_value::<std::ffi::OsString,_>("InstallLocation"))
             .map(|oss| EldenRingDir(std::path::Path::new(&oss).join("Game").to_path_buf()))
-            .ok()
+            .ok().or(std::env::current_exe().ok()  // Not in registry? Check the dir our exe is in
+                     .and_then(|me| me.parent().map(|p| p.to_path_buf()))
+                     .and_then(|mydir| mydir.join("eldenring.exe").is_file().then(|| EldenRingDir(mydir))))
     }
 
     #[cfg(not(target_os = "windows"))]
