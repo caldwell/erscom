@@ -127,18 +127,18 @@ fn get_releases(win: &MainWindow, installdir: Option<manage::EldenRingDir>) {
             });
 
             if let Some(installdir) = installdir {
-              win.on_install({
-                let releases = releases.clone();
-                let weak_win = win.as_weak();
-                move |version_index| {
-                    let win = weak_win.unwrap();
-                    let version = &releases.borrow()[version_index as usize];
-                    println!("Installing {}", version.tag);
-                    if let Err(e) = version.install(&installdir) {
-                        win.set_error(e.to_string().into());
+                win.on_install({
+                    let releases = releases.clone();
+                    let weak_win = win.as_weak();
+                    move |version_index| {
+                        let win = weak_win.unwrap();
+                        let version = &releases.borrow()[version_index as usize];
+                        println!("Installing {}", version.tag);
+                        if let Err(e) = version.install(&installdir) {
+                            win.set_error(e.to_string().into());
+                        }
                     }
-                }
-              });
+                });
             }
         }
     };
