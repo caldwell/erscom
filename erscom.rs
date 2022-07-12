@@ -191,6 +191,7 @@ slint::slint! {
         property password <=> pass.text;
 
         title: "Elden Ring Seamless Co-op Manager  v" + my-version;
+        icon: @image-url("assets/eldenringlogo.jpg");
         default-font-size: 16px;
         max-width: 10000px;
 
