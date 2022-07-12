@@ -221,15 +221,16 @@ slint::slint! {
                     spacing: 10px;
                     Row {
                         LightText {
-                            text: "Path:";
+                            text: "Elden Ring:";
                         }
                         LightText {
+                            wrap: word-wrap;
                             text: root.install-path == "" ? "<Not Found>" : root.install-path;
                         }
                     }
                     Row {
                         LightText {
-                            text: "Current Version:";
+                            text: "Current Mod Version:";
                         }
                         LightText {
                             text: root.current-version == "" ? "<Unknown>" : root.current-version;
@@ -237,7 +238,7 @@ slint::slint! {
                     }
                     Row {
                         LightText {
-                            text: "New Version:";
+                            text: "New Mod Version:";
                         }
                         cb := ComboBox {
                             model: root.available-versions;
