@@ -176,7 +176,7 @@ impl EldenRingDir {
         let hklm = winreg::RegKey::predef(winreg::enums::HKEY_LOCAL_MACHINE);
         hklm.open_subkey(r"SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\Steam App 1245620")
             .and_then(|subkey| subkey.get_value::<std::ffi::OsString,_>("InstallLocation"))
-            .map(|oss| EldenRingDir(std::path::Path::new(&oss).to_path_buf()))
+            .map(|oss| EldenRingDir(std::path::Path::new(&oss).join("Game").to_path_buf()))
             .ok()
     }
 
@@ -221,8 +221,8 @@ impl EldenRingDir {
         Ok(())
     }
 
-    pub fn path(&self) -> std::path::PathBuf {
-        self.0.join("Game")
+    pub fn path(&self) -> &std::path::Path {
+        &self.0
     }
 
     pub fn display(&self) -> String {
