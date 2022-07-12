@@ -410,7 +410,7 @@ slint::slint! {
                         height: 20px;
                     }
                     Text {
-                        text: "Download New Launcher Version "+root.my-upgrade-version;
+                        text: "Download New Manager Version "+root.my-upgrade-version;
                         color: white;
                         font-size: 18px;
                         font-weight: 700;
