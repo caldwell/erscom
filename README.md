@@ -24,8 +24,8 @@ License
 
 Copyright © 2022 David Caldwell <david_erscom@porkrind.org>
 
-**TLDR**: [gplv3](LICENSE.md). You can redistribute the .exe (or a modified
-version) as long as you ship the source code used to build it alongside.
+*TLDR: [GPLv3](LICENSE.md). You can redistribute the .exe (or a modified
+version) as long as you ship the source code used to build it alongside.*
 
 This program is free software: you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
