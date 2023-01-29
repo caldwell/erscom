@@ -41,19 +41,19 @@ struct GithubAsset {
 }
 
 fn github_releases(project: &str) -> Result<Vec<GithubRelease>, Box<dyn Error>> {
-  tokio::task::block_in_place(move || {
-    let client = reqwest::blocking::Client::new();
-    let resp = client.get(&format!("https://api.github.com/repos/{}/releases", project))
-        .header("Accept", "application/vnd.github+json")
-        .header("User-Agent", "erscom 1.0")
-        .send()?;
-    let status = resp.status();
-    if !status.is_success() {
-        Err(resp.text().unwrap_or(format!("Got status {}", status)))?;
-        unreachable!();
-    }
-    Ok(resp.json()?)
-  })
+    tokio::task::block_in_place(move || {
+        let client = reqwest::blocking::Client::new();
+        let resp = client.get(&format!("https://api.github.com/repos/{}/releases", project))
+            .header("Accept", "application/vnd.github+json")
+            .header("User-Agent", "erscom 1.0")
+            .send()?;
+        let status = resp.status();
+        if !status.is_success() {
+            Err(resp.text().unwrap_or(format!("Got status {}", status)))?;
+            unreachable!();
+        }
+        Ok(resp.json()?)
+    })
 }
 
 pub fn self_upgrade_version() -> Result<Option<String>, Box<dyn Error>> {
@@ -153,20 +153,19 @@ impl Release {
         if !path.parent().ok_or("No parent for cache dir??")?.exists() {
             std::fs::create_dir(&path.parent().unwrap())?;
         }
-      tokio::task::block_in_place(move || {
-        let client = reqwest::blocking::Client::new();
-        let mut resp = client.get(&self.url)
-            .header("User-Agent", "erscom 1.0")
-            .send()?;
+        tokio::task::block_in_place(move || {
+            let client = reqwest::blocking::Client::new();
+            let mut resp = client.get(&self.url)
+                .header("User-Agent", "erscom 1.0")
+                .send()?;
 
-        let download_path = add_extension(&path, "partial");
-        let mut file = std::fs::File::create(&download_path)?;
-        resp.copy_to(&mut file)?;
+            let download_path = add_extension(&path, "partial");
+            let mut file = std::fs::File::create(&download_path)?;
+            resp.copy_to(&mut file)?;
 
-        std::fs::rename(&download_path, &path)?;
-
-        Ok(path)
-      })
+            std::fs::rename(&download_path, &path)?;
+            Ok(path)
+        })
     }
 
 }
