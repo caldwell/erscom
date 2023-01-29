@@ -248,7 +248,7 @@ slint::slint! {
                         }
                         Button {
                             text: root.current-version == root.version-at-index(cb.current-index) ? "Reinstall" : "Install";
-                            enabled: root.install-path != "";
+                            enabled: root.install-path != "" && cb.current-index != -1;
                             clicked => {
                                 root.install(cb.current-index);
                                 root.new-password(pass.text);
@@ -293,7 +293,7 @@ slint::slint! {
                                 root.launch()
                             }
 
-                            enabled: root.install-path != "";
+                            enabled: root.install-path != "" && cb.current-index != -1;
                         }
                     }
                 }
