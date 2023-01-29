@@ -251,7 +251,9 @@ slint::slint! {
                             enabled: root.install-path != "" && cb.current-index != -1;
                             clicked => {
                                 root.install(cb.current-index);
+                                if (root.error != "") { return; }
                                 root.new-password(pass.text);
+                                if (root.error != "") { return; }
                                 root.refresh();
                                 cb.current-value = cb.model[cb.current-index];
                             }
