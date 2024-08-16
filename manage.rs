@@ -109,18 +109,28 @@ impl Release {
     }
 
     pub fn installed(&self, installdir: &EldenRingDir) -> Option<bool> {
+        match (self.file_installed(installdir, &std::path::Path::new("SeamlessCoop").join("elden_ring_seamless_coop.dll")),
+               self.file_installed(installdir, &std::path::Path::new("SeamlessCoop").join("ersc.dll"))) {
+            (None, None) => None,
+            (Some(true), _) | (_, Some(true)) => Some(true),
+            (_,_) => Some(false),
+        }
+    }
+
+    pub fn file_installed(&self, installdir: &EldenRingDir, path: &std::path::PathBuf) -> Option<bool> {
+        let disk_path = installdir.path().join(path);
+        let zip_file_path = path.iter().map(|p| p.to_string_lossy()).collect::<Vec<_>>().join("/");
         use std::io::Read;
         if !self.downloaded() {
             return None;
         }
-        let disk_path = installdir.path().join("SeamlessCoop").join("elden_ring_seamless_coop.dll");
         let mut disk_file = std::fs::File::open(&disk_path).ok()?;
         let mut disk_dll = Vec::new();
         disk_file.read_to_end(&mut disk_dll).ok()?;
 
         let zip_path = self.download().ok()?;
         let mut zip = zip::ZipArchive::new(std::fs::File::open(&zip_path).ok()?).map_err(|e| format!("Couldn't read {}: {}", zip_path.to_string_lossy(), e)).ok()?;
-        let mut zip_file = zip.by_name("SeamlessCoop/elden_ring_seamless_coop.dll").ok()?;
+        let mut zip_file = zip.by_name(&zip_file_path).ok()?;
         let mut zip_dll = Vec::new();
         zip_file.read_to_end(&mut zip_dll).ok()?;
 
