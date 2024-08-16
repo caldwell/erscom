@@ -79,6 +79,27 @@ pub fn get_releases() -> Result<Vec<Release>, Box<dyn Error>> {
 
 impl Release {
     pub fn install(&self, installdir: &EldenRingDir) -> Result<(), Box<dyn Error>> {
+        self.install_uninstall(installdir, |file, dest_path| -> Result<(), Box<dyn Error>> {
+            let name = file.enclosed_name().unwrap(); // Guaranteed by instal_uninstall()
+            println!("Filename: {}{}  -> {:?}", name.to_string_lossy(), if name.is_dir() { "/" } else { "" }, dest_path);
+            std::fs::create_dir_all(&dest_path.parent().ok_or(format!("No parent for {:?}??", dest_path))?)?;
+            let mut dest = std::fs::File::create(&dest_path).map_err(|e| format!("Error creating {:?}: {}", dest_path, e))?;
+            if let Err(e) = std::io::copy(file, &mut dest) {
+                Err(format!("Error writing {:?}: {}", dest_path, e))?;
+            }
+            Ok(())
+        })
+    }
+
+    pub fn uninstall(&self, installdir: &EldenRingDir) -> Result<(), Box<dyn Error>> {
+        self.install_uninstall(installdir, |_file, dest_path| -> Result<(), Box<dyn Error>> {
+            println!("{} Removing: {:?}", self.tag, dest_path);
+            std::fs::remove_file(&dest_path)?;
+            Ok(())
+        })
+    }
+
+    fn install_uninstall<F>(&self, installdir: &EldenRingDir, handler: F) -> Result<(), Box<dyn Error>> where F: Fn(&mut zip::read::ZipFile, std::path::PathBuf) -> Result<(), Box<dyn Error>> {
         let path = self.download()?;
         println!("Local zip: {}", path.to_string_lossy());
 
@@ -93,14 +114,7 @@ impl Release {
                 let dest_path = installdir.path().join(name);
                 match (file.is_dir(), dest_path.is_file(), name.extension().map(|n| n.to_string_lossy().to_lowercase()) == Some("ini".to_string())) {
                     (false, false, _) |
-                    (false, true,  false) => {
-                        println!("Filename: {}{}  -> {:?}", name.to_string_lossy(), if name.is_dir() { "/" } else { "" }, dest_path);
-                        std::fs::create_dir_all(&dest_path.parent().ok_or(format!("No parent for {:?}??", dest_path))?)?;
-                        let mut dest = std::fs::File::create(&dest_path).map_err(|e| format!("Error creating {:?}: {}", dest_path, e))?;
-                        if let Err(e) = std::io::copy(&mut file, &mut dest) {
-                            Err(format!("Error writing {:?}: {}", dest_path, e))?;
-                        }
-                    },
+                    (false, true,  false) => { handler(&mut file, dest_path)?; },
                     (_,_,_) => { println!("Ignoring {}", file.name()) },
                 }
             }

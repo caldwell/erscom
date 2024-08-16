@@ -99,9 +99,11 @@ fn get_releases(win: &MainWindow, installdir: Option<manage::EldenRingDir>) {
                                                                                                              if r.downloaded() { "[ Downloaded ]" } else { "" }).into())
                                                                                             .collect::<Vec<slint::SharedString>>())).into());
 
+            let mut current_release = None;
             win.set_current_version("".into());
             if let Some(ref installdir) = installdir {
                 if let Some(release) = releases.borrow().iter().find(|&release| release.installed(&installdir).unwrap_or(false)) {
+                    current_release = Some(release.clone());
                     win.set_current_version(release.tag.clone().into());
                 }
                 match installdir.get_password() {
@@ -129,10 +131,18 @@ fn get_releases(win: &MainWindow, installdir: Option<manage::EldenRingDir>) {
             if let Some(installdir) = installdir {
                 win.on_install({
                     let releases = releases.clone();
+                    let current_release = current_release.clone();
                     let weak_win = win.as_weak();
                     move |version_index| {
                         let win = weak_win.unwrap();
                         let version = &releases.borrow()[version_index as usize];
+                        if let Some(current) = current_release.as_ref() {
+                            println!("Uninstalling {}", current.tag);
+                            if let Err(e) = current.uninstall(&installdir) {
+                                println!("Got error uninstalling {}: {}", current.tag, e);
+                                // What do do about errors??
+                            }
+                        }
                         println!("Installing {}", version.tag);
                         if let Err(e) = version.install(&installdir) {
                             win.set_error(e.to_string().into());
