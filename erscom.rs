@@ -24,7 +24,7 @@ mod ini;
 
 #[tokio::main]
 async fn main() {
-    let win = MainWindow::new();
+    let win = MainWindow::new().unwrap();
 
     win.on_exit(move || {
         println!("Exiting");
