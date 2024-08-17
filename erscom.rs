@@ -294,24 +294,30 @@ slint::slint! {
                         LightText {
                             text: "Password:";
                         }
-                        pass := LineEdit {
-                            input-type: root.show-password ? InputType.text : InputType.password;
-                            edited => {
-                                root.new-password(pass.text)
-                            }
-                            accepted => {
-                                root.new-password(pass.text)
-                            }
-                        }
                         Rectangle {
-                            Image {
-                                colorize: white;
-                                source: root.show-password ? @image-url("assets/eye-slash-fill.svg") : @image-url("assets/eye-fill.svg");
-                                image-fit: cover;
+                            pass := LineEdit {
+                                width: 100%;
+                                input-type: root.show-password ? InputType.text : InputType.password;
+                                edited => {
+                                    root.new-password(pass.text)
+                                }
+                                accepted => {
+                                    root.new-password(pass.text)
+                                }
                             }
-                            TouchArea {
-                                clicked => {
-                                    root.show-password = !root.show-password;
+                            Rectangle {
+                                width: image.width;
+                                x: pass.width - image.width - 5px;
+
+                                image := Image {
+                                    colorize: white;
+                                    source: root.show-password ? @image-url("assets/eye-slash-fill.svg") : @image-url("assets/eye-fill.svg");
+                                    image-fit: cover;
+                                }
+                                TouchArea {
+                                    clicked => {
+                                        root.show-password = !root.show-password;
+                                    }
                                 }
                             }
                         }
