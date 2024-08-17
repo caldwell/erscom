@@ -17,6 +17,7 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 use std::cell::RefCell;
+use std::error::Error;
 use std::rc::Rc;
 
 mod manage;
@@ -39,27 +40,26 @@ async fn main() {
     get_releases(&win, &manager.clone());
 
     win.on_new_password({
-        let weak_win = win.as_weak();
         let manager = manager.clone();
         move |password| {
-            let win = weak_win.unwrap();
+            println!("New password: {}", password);
             if manager.borrow().found_dir() {
                 if let Err(e) = manager.borrow().set_password(&password) {
-                    win.set_error(e.to_string().into());
+                    error(e);
+                    return false;
                 }
             }
+            true
         }
     });
 
     win.on_launch({
-        let weak_win = win.as_weak();
         let manager = manager.clone();
         move || {
-            let win = weak_win.unwrap();
             let manager = manager.borrow();
             let installdir = manager.dir.as_ref().unwrap(); // unwrap can't fail because ui won't call us unless it's Some
             if let Err(e) = launch(installdir) {
-                win.set_error(e.to_string().into());
+                error(e);
             }
         }
     });
@@ -84,12 +84,32 @@ async fn main() {
     win.run();
 }
 
+fn error(error: Box<dyn Error>) {
+    let dialog = ErrorDialog::new().unwrap();
+    dialog.set_error(format!("{}", error).into());
+    dialog.on_ok_clicked({
+        let dialog = dialog.as_weak();
+        move || {
+            let dialog = dialog.unwrap();
+            dialog.hide();
+        }
+    });
+    dialog.show();
+}
+
+fn fatal(error: Box<dyn Error>) {
+    let dialog = FatalDialog::new().unwrap();
+    dialog.set_error(format!("{}", error).into());
+    dialog.on_abort_clicked(move || {
+            slint::quit_event_loop();
+    });
+    dialog.show();
+}
+
 fn get_releases(win: &MainWindow, manager_ref: &Rc<RefCell<manage::EldenRingManager>>) {
     let mut manager = manager_ref.borrow_mut();
     if let Err(e) = manager.fetch_releases() {
-        win.set_error(e.to_string().into());
-        win.set_fatal_error(true);
-        return;
+        return fatal(e);
     }
 
     //println!("Releases:\n{:?}", releases);
@@ -129,9 +149,7 @@ fn get_releases(win: &MainWindow, manager_ref: &Rc<RefCell<manage::EldenRingMana
     if let Some(installdir) = manager.dir.clone() {
         win.on_install({
             let manager_ref = manager_ref.clone();
-            let weak_win = win.as_weak();
             move |version_index| {
-                let win = weak_win.unwrap();
                 let manager = manager_ref.borrow();
                 let version = &manager.releases[version_index as usize];
                 if let Some(ref current) = manager.current {
@@ -143,8 +161,10 @@ fn get_releases(win: &MainWindow, manager_ref: &Rc<RefCell<manage::EldenRingMana
                 }
                 println!("Installing {}", version.tag);
                 if let Err(e) = version.install(&installdir) {
-                    win.set_error(e.to_string().into());
+                    error(e);
+                    return false;
                 }
+                true
             }
         });
     }
@@ -166,7 +186,7 @@ fn launch(installdir: &manage::EldenRingDir) -> Result<(), Box<dyn std::error::E
 }
 
 slint::slint! {
-    import { Button, ComboBox, LineEdit, ScrollView } from "std-widgets.slint";
+    import { Button, ComboBox, LineEdit, ScrollView, StandardButton } from "std-widgets.slint";
     component LightText inherits Text {
         color: white;
     }
@@ -179,19 +199,17 @@ slint::slint! {
     }
 
     export component MainWindow inherits Window {
-        callback install(int);
+        callback install(int) -> bool;
         pure callback version-at-index(int) -> string;
         pure callback changelog-at-index(int) -> string;
         callback launch;
         callback exit;
         callback refresh;
-        callback new-password(string);
+        callback new-password(string) -> bool;
         callback open-url(string);
         in property<string> install-path;
         in property<string> current-version;
         in property<[string]> available-versions;
-        in-out property<string> error;
-        in property<bool> fatal-error: false;
         in property<string> my-version: "0.0.0-local";
         in property<string> my-upgrade-version: "";
         property<bool> show-password: false;
@@ -208,7 +226,7 @@ slint::slint! {
             y: 0;
             x: 0;
             Image {
-                source: root.error == "" ? @image-url("assets/eldenring.jpg") : @image-url("assets/youdied.png");
+                source: @image-url("assets/eldenring.jpg");
                 image-fit: cover;
                 width: parent.height;
                 height: parent.height;
@@ -224,7 +242,6 @@ slint::slint! {
             Frame {
                 vertical-stretch: 0;
                 GridLayout {
-                    visible: root.error == "";
                     padding: 50px;
                     spacing: 10px;
                     Row {
@@ -258,10 +275,8 @@ slint::slint! {
                             text: root.current-version == root.version-at-index(cb.current-index) ? "Reinstall" : "Install";
                             enabled: root.install-path != "" && cb.current-index != -1;
                             clicked => {
-                                root.install(cb.current-index);
-                                if (root.error != "") { return; }
-                                root.new-password(pass.text);
-                                if (root.error != "") { return; }
+                                if (!root.install(cb.current-index)) { return; }
+                                if (!root.new-password(pass.text)) { return; }
                                 root.refresh();
                                 cb.current-value = cb.model[cb.current-index];
                             }
@@ -306,46 +321,8 @@ slint::slint! {
                         }
                     }
                 }
-                GridLayout {
-                    visible: root.error != "";
-                    padding: 50px;
-                    spacing: 10px;
-                    Row {
-                        LightText {
-                            text: "I'm terribly sorry but an error occurred!";
-                            font-size: 36px;
-                            font-weight: 900;
-                        }
-                    }
-                    Row {
-                        LightText {
-                            text: root.error;
-                            wrap: word-wrap;
-                            max-width: 720px;
-                        }
-                    }
-                    Row {
-                        Button {
-                            visible: root.fatal-error == true;
-                            text: "Exit";
-                            clicked => {
-                                root.exit()
-                            }
-                        }
-                    }
-                    Row {
-                        Button {
-                            visible: root.fatal-error == false;
-                            text: "Sigh... Ok";
-                            clicked => {
-                                root.error = ""
-                            }
-                        }
-                    }
-                }
             }
             Frame {
-                visible: root.error == "";
                 VerticalLayout {
                     spacing: 10px;
                     padding: 50px;
@@ -433,4 +410,62 @@ slint::slint! {
             }
         }
     }
+
+    component ErrorGuts inherits Rectangle {
+        in property<string> error;
+
+        image := Image {
+            source: @image-url("assets/youdied.png");
+            image-fit: contain;
+            width: parent.width;
+            height: parent.height;
+        }
+
+        Frame {
+            GridLayout {
+                padding: 50px;
+                spacing: 10px;
+                Row {
+                    LightText {
+                        text: "I'm terribly sorry but an error occurred!";
+                        font-size: 36px;
+                        font-weight: 900;
+                    }
+                }
+                Row {
+                    LightText {
+                        text: root.error;
+                        wrap: word-wrap;
+                        max-width: 720px;
+                    }
+                }
+            }
+        }
+    }
+
+    export component ErrorDialog inherits Dialog {
+        in property<string> error <=> message.error;
+        callback ok-clicked;
+
+        background: black;
+        title: "Error!";
+        message := ErrorGuts {
+        }
+        Button {
+            text: "Sigh... Ok";
+            dialog-button-role: action;
+            clicked => { ok_clicked() }
+        }
+    }
+
+    export component FatalDialog inherits Dialog {
+        in property<string> error <=> message.error;
+
+        background: black;
+        title: "Fatal Error!";
+        message := ErrorGuts {
+        }
+        StandardButton { kind: abort; }
+    }
+
 }
