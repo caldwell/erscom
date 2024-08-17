@@ -218,13 +218,15 @@ impl EldenRingDir {
     }
 
     pub fn get_ini(&self) -> Option<std::path::PathBuf> {
-        let old = self.path().join("SeamlessCoop").join("cooppassword.ini");
-        let new = self.path().join("SeamlessCoop").join("seamlesscoopsettings.ini");
+        let old1 = self.path().join("SeamlessCoop").join("cooppassword.ini");
+        let old2 = self.path().join("SeamlessCoop").join("seamlesscoopsettings.ini");
+        let new  = self.path().join("SeamlessCoop").join("ersc_settings.ini");
 
-        match (new.is_file(),old.is_file()) {
-            (true,  _)     => Some(new),
-            (false, true)  => Some(old),
-            (false, false) => None,
+        match (new.is_file(),old2.is_file(),old1.is_file()) {
+            (true,  _,     _)     => Some(new),
+            (false, true,  _)     => Some(old2),
+            (false, false, true)  => Some(old1),
+            (false, false, false) => { println!("{}: {}", old1.display(), false); println!("{}: {}", old2.display(), false); None },
         }
     }
 
@@ -235,12 +237,14 @@ impl EldenRingDir {
     }
 
     pub fn set_password(&self, password: &str) -> Result<(), Box<dyn Error>> {
-        let old = self.path().join("SeamlessCoop").join("cooppassword.ini");
-        let new = self.path().join("SeamlessCoop").join("seamlesscoopsettings.ini");
+        let old1 = self.path().join("SeamlessCoop").join("cooppassword.ini");
+        let old2 = self.path().join("SeamlessCoop").join("seamlesscoopsettings.ini");
+        let new  = self.path().join("SeamlessCoop").join("ersc_settings.ini");
 
-        if old.is_file() { self.set_password_for(password, &old, "SETTINGS")?; }
-        if new.is_file() { self.set_password_for(password, &new, "PASSWORD")?; }
-        if !old.is_file() && !new.is_file() { Err(format!("No ini file to save password in!"))? }
+        if old1.is_file() { self.set_password_for(password, &old1, "SETTINGS")?; }
+        if old2.is_file() { self.set_password_for(password, &old2, "PASSWORD")?; }
+        if new.is_file()  { self.set_password_for(password, &new,  "PASSWORD")?; }
+        if !old1.is_file() && !old2.is_file() && !new.is_file() { Err(format!("No ini file to save password in!"))? }
         Ok(())
     }
 
