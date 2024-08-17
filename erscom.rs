@@ -167,35 +167,35 @@ fn launch(installdir: &manage::EldenRingDir) -> Result<(), Box<dyn std::error::E
 
 slint::slint! {
     import { Button, ComboBox, LineEdit, ScrollView } from "std-widgets.slint";
-    LightText := Text {
+    component LightText inherits Text {
         color: white;
     }
 
-    Frame := Rectangle {
+    component Frame inherits Rectangle {
         background: #000000aa;
         border-color: #000000;
         border-width: 1px;
         border-radius: 5px;
     }
 
-    MainWindow := Window {
+    export component MainWindow inherits Window {
         callback install(int);
-        callback version-at-index(int) -> string;
-        callback changelog-at-index(int) -> string;
+        pure callback version-at-index(int) -> string;
+        pure callback changelog-at-index(int) -> string;
         callback launch;
         callback exit;
         callback refresh;
         callback new-password(string);
         callback open-url(string);
-        property<string> install-path;
-        property<string> current-version;
-        property<[string]> available-versions;
-        property<string> error;
-        property<bool> fatal-error: false;
-        property<string> my-version: "0.0.0-local";
-        property<string> my-upgrade-version: "";
+        in property<string> install-path;
+        in property<string> current-version;
+        in property<[string]> available-versions;
+        in-out property<string> error;
+        in property<bool> fatal-error: false;
+        in property<string> my-version: "0.0.0-local";
+        in property<string> my-upgrade-version: "";
         property<bool> show-password: false;
-        property password <=> pass.text;
+        in-out property password <=> pass.text;
 
         title: "Elden Ring Seamless Co-op Manager  v" + my-version;
         icon: @image-url("assets/eldenringlogo.jpg");
@@ -205,6 +205,8 @@ slint::slint! {
         Rectangle {
             width: Math.max(parent.height,parent.width);
             height: Math.max(parent.height,parent.width);
+            y: 0;
+            x: 0;
             Image {
                 source: root.error == "" ? @image-url("assets/eldenring.jpg") : @image-url("assets/youdied.png");
                 image-fit: cover;
@@ -284,7 +286,6 @@ slint::slint! {
                                 colorize: white;
                                 source: root.show-password ? @image-url("assets/eye-slash-fill.svg") : @image-url("assets/eye-fill.svg");
                                 image-fit: cover;
-                                width: parent.height;
                             }
                             TouchArea {
                                 clicked => {
@@ -370,7 +371,7 @@ slint::slint! {
             }
         }
         HorizontalLayout {
-            y: parent.height - height;
+            y: parent.height - self.height;
             height: 12px;
             alignment: end;
 
