@@ -31,20 +31,20 @@ async fn main() {
         slint::quit_event_loop();
     });
 
-    let installdir = manage::EldenRingDir::autodetect_install_path();
-    if let Some(ref p) = installdir {
+    let manager = Rc::new(RefCell::new(manage::EldenRingManager::new()));
+    if let Some(ref p) = manager.borrow().dir {
         win.set_install_path(p.display().into());
     }
 
-    get_releases(&win, installdir.clone());
+    get_releases(&win, &manager.clone());
 
     win.on_new_password({
         let weak_win = win.as_weak();
-        let installdir = installdir.clone();
+        let manager = manager.clone();
         move |password| {
             let win = weak_win.unwrap();
-            if let Some(installdir) = &installdir {
-                if let Err(e) = installdir.set_password(&password) {
+            if manager.borrow().found_dir() {
+                if let Err(e) = manager.borrow().set_password(&password) {
                     win.set_error(e.to_string().into());
                 }
             }
@@ -53,10 +53,11 @@ async fn main() {
 
     win.on_launch({
         let weak_win = win.as_weak();
-        let installdir = installdir.clone();
+        let manager = manager.clone();
         move || {
             let win = weak_win.unwrap();
-            let installdir = installdir.as_ref().unwrap(); // unwrap can't fail because ui won't call us unless it's Some
+            let manager = manager.borrow();
+            let installdir = manager.dir.as_ref().unwrap(); // unwrap can't fail because ui won't call us unless it's Some
             if let Err(e) = launch(installdir) {
                 win.set_error(e.to_string().into());
             }
@@ -68,7 +69,7 @@ async fn main() {
         move || {
             let win = weak_win.unwrap();
             println!("Refreshing");
-            get_releases(&win, installdir.clone());
+            get_releases(&win, &manager.clone());
         }
     });
 
@@ -83,60 +84,57 @@ async fn main() {
     win.run();
 }
 
-fn get_releases(win: &MainWindow, installdir: Option<manage::EldenRingDir>) {
-    match manage::get_releases() {
-        Err(e) => {
-            win.set_error(e.to_string().into());
-            win.set_fatal_error(true);
-        },
-        Ok(r) => {
-            let releases = Rc::new(RefCell::new(r));
-            releases.borrow_mut().sort_by(|a,b| b.date.cmp(&a.date));
+fn get_releases(win: &MainWindow, manager_ref: &Rc<RefCell<manage::EldenRingManager>>) {
+    let mut manager = manager_ref.borrow_mut();
+    if let Err(e) = manager.fetch_releases() {
+        win.set_error(e.to_string().into());
+        win.set_fatal_error(true);
+        return;
+    }
+
             //println!("Releases:\n{:?}", releases);
-            win.set_available_versions(Rc::new(slint::VecModel::<slint::SharedString>::from(releases.borrow().iter()
+            win.set_available_versions(Rc::new(slint::VecModel::<slint::SharedString>::from(manager.releases.iter()
                                                                                             .map(|r| format!("{}  --  {}  {}",
                                                                                                              r.tag, r.date,
                                                                                                              if r.downloaded() { "[ Downloaded ]" } else { "" }).into())
                                                                                             .collect::<Vec<slint::SharedString>>())).into());
 
-            let mut current_release = None;
             win.set_current_version("".into());
-            if let Some(ref installdir) = installdir {
-                if let Some(release) = releases.borrow().iter().find(|&release| release.installed(&installdir).unwrap_or(false)) {
-                    current_release = Some(release.clone());
-                    win.set_current_version(release.tag.clone().into());
-                }
-                match installdir.get_password() {
+            if let Some(release) = manager.detect_current_release() {
+                win.set_current_version(release.tag.clone().into());
+            }
+            match manager.get_password() {
                     Ok(ref password) => { win.set_password(password.into()) },
                     Err(e) => { println!("Error: {:?}", e) },
-                }
             }
 
             win.on_version_at_index({
-                let releases = releases.clone();
+                let releases = manager.releases.clone();
                 move |version_index| {
-                    let version = &releases.borrow()[version_index as usize];
+                    if version_index < 0 { return "".into(); }
+                    let version = &releases[version_index as usize];
                     version.tag.clone().into()
                 }
             });
 
             win.on_changelog_at_index({
-                let releases = releases.clone();
+                let releases = manager.releases.clone();
                 move |version_index| {
-                    let version = &releases.borrow()[version_index as usize];
+                    if version_index < 0 { return "".into(); }
+                    let version = &releases[version_index as usize];
                     version.changelog.clone().into()
                 }
             });
 
-            if let Some(installdir) = installdir {
+            if let Some(installdir) = manager.dir.clone() {
                 win.on_install({
-                    let releases = releases.clone();
-                    let current_release = current_release.clone();
+                    let manager_ref = manager_ref.clone();
                     let weak_win = win.as_weak();
                     move |version_index| {
                         let win = weak_win.unwrap();
-                        let version = &releases.borrow()[version_index as usize];
-                        if let Some(current) = current_release.as_ref() {
+                        let manager = manager_ref.borrow();
+                        let version = &manager.releases[version_index as usize];
+                        if let Some(ref current) = manager.current {
                             println!("Uninstalling {}", current.tag);
                             if let Err(e) = current.uninstall(&installdir) {
                                 println!("Got error uninstalling {}: {}", current.tag, e);
@@ -150,8 +148,6 @@ fn get_releases(win: &MainWindow, installdir: Option<manage::EldenRingDir>) {
                     }
                 });
             }
-        }
-    };
 }
 
 fn launch(installdir: &manage::EldenRingDir) -> Result<(), Box<dyn std::error::Error>> {

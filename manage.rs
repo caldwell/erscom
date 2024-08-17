@@ -17,7 +17,7 @@ use std::error::Error;
 
 use serde::{Serialize, Deserialize};
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Release {
     pub tag: String,
     pub url: String,
@@ -217,29 +217,80 @@ impl EldenRingDir {
                           .join("pretend-installdir")))
     }
 
-    pub fn get_ini(&self) -> Option<std::path::PathBuf> {
-        let old1 = self.path().join("SeamlessCoop").join("cooppassword.ini");
-        let old2 = self.path().join("SeamlessCoop").join("seamlesscoopsettings.ini");
-        let new  = self.path().join("SeamlessCoop").join("ersc_settings.ini");
+    pub fn path(&self) -> &std::path::Path {
+        &self.0
+    }
 
-        match (new.is_file(),old2.is_file(),old1.is_file()) {
-            (true,  _,     _)     => Some(new),
-            (false, true,  _)     => Some(old2),
-            (false, false, true)  => Some(old1),
-            (false, false, false) => { println!("{}: {}", old1.display(), false); println!("{}: {}", old2.display(), false); None },
+    pub fn display(&self) -> String {
+        self.0.to_string_lossy().into_owned()
+    }
+}
+
+impl std::fmt::Display for EldenRingDir {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.0.display())
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct EldenRingManager {
+    pub dir: Option<EldenRingDir>,
+    pub releases: Vec<Release>,
+    pub current: Option<Release>,
+}
+
+impl EldenRingManager {
+    pub fn new() -> EldenRingManager {
+        EldenRingManager {
+            dir: EldenRingDir::autodetect_install_path(),
+            releases: vec![],
+            current: None,
+        }
+    }
+
+    pub fn found_dir(&self) -> bool { self.dir.is_some() }
+
+    pub fn fetch_releases(&mut self) -> Result<(), Box<dyn Error>> {
+        self.releases = get_releases()?;
+        self.releases.sort_by(|a,b| b.date.cmp(&a.date));
+        Ok(())
+    }
+
+    pub fn detect_current_release(&mut self) -> &Option<Release> {
+        if let Some(ref installdir) = self.dir {
+            if let Some(release) = self.releases.iter().find(|&release| release.installed(&installdir).unwrap_or(false)) {
+                self.current = Some(release.clone());
+            }
+        }
+        &self.current
+    }
+
+    pub fn get_ini(&self) -> Option<std::path::PathBuf> {
+        let Some(ref dir) = self.dir else { return None };
+        let old = dir.path().join("SeamlessCoop").join("cooppassword.ini");
+        let new = dir.path().join("SeamlessCoop").join("seamlesscoopsettings.ini");
+        let new2= dir.path().join("SeamlessCoop").join("ersc_settings.ini");
+
+        match (new2.is_file(),new.is_file(),old.is_file()) {
+            (true,  _,     _)     => Some(new2),
+            (false, true,  _)     => Some(new),
+            (false, false, true)  => Some(old),
+            (false, false, false) => { println!("{}: {}", old.display(), false); println!("{}: {}", new.display(), false); None },
         }
     }
 
     pub fn get_password(&self) -> Result<String, Box<dyn Error>> {
-        let ini_file = self.get_ini().ok_or(format!("Missing ini file in {}", self.0.join("SeamlessCoop").display()))?;
+        let Some(ref dir) = self.dir else { return Err(format!("Couldn't find Elden Ring directory").into()) };
+        let ini_file = self.get_ini().ok_or(format!("Missing ini file in {}", dir.0.join("SeamlessCoop").display()))?;
         let ini = crate::ini::Ini::read(&ini_file)?;
         Ok(ini.get("PASSWORD", "cooppassword").or(ini.get("SETTINGS", "cooppassword")).ok_or(format!("cooppassword setting not found in {}", ini_file.display()))?.to_string())
     }
 
     pub fn set_password(&self, password: &str) -> Result<(), Box<dyn Error>> {
-        let old1 = self.path().join("SeamlessCoop").join("cooppassword.ini");
-        let old2 = self.path().join("SeamlessCoop").join("seamlesscoopsettings.ini");
-        let new  = self.path().join("SeamlessCoop").join("ersc_settings.ini");
+        let Some(ref dir) = self.dir else { return Err(format!("Couldn't find Elden Ring directory").into()) };
+        let old1 = dir.path().join("SeamlessCoop").join("cooppassword.ini");
+        let old2 = dir.path().join("SeamlessCoop").join("seamlesscoopsettings.ini");
+        let new  = dir.path().join("SeamlessCoop").join("ersc_settings.ini");
 
         if old1.is_file() { self.set_password_for(password, &old1, "SETTINGS")?; }
         if old2.is_file() { self.set_password_for(password, &old2, "PASSWORD")?; }
@@ -255,19 +306,6 @@ impl EldenRingDir {
         Ok(())
     }
 
-    pub fn path(&self) -> &std::path::Path {
-        &self.0
-    }
-
-    pub fn display(&self) -> String {
-        self.0.to_string_lossy().into_owned()
-    }
-}
-
-impl std::fmt::Display for EldenRingDir {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", self.0.display())
-    }
 }
 
 // Stolen from https://users.rust-lang.org/t/append-an-additional-extension/23586/12
