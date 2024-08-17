@@ -151,6 +151,21 @@ impl Release {
         Some(disk_dll == zip_dll)
     }
 
+    pub fn ini_path(&self) -> Result<std::path::PathBuf, Box<dyn Error>> {
+        if !self.downloaded() { Err(format!("Release {} zip is not downloaded", self.tag))? }
+        let zip_path = self.download()?;
+        let mut zip = zip::ZipArchive::new(std::fs::File::open(&zip_path)?).map_err(|e| format!("Couldn't read {}: {}", zip_path.to_string_lossy(), e))?;
+        for i in 0..zip.len() {
+            let file = zip.by_index(i)?;
+            if let Some(name) = file.enclosed_name() {
+                if name.extension().map(|n| n.to_string_lossy().to_lowercase()) == Some("ini".to_string()) {
+                    return Ok(name.to_owned());
+                }
+            }
+        }
+        Err(format!("No settings file found in .zip!"))?
+    }
+
     pub fn cache_path(&self) -> Result<std::path::PathBuf, Box<dyn Error>> {
         Ok(add_extension(&std::env::current_exe().map_err(|e| format!("Couldn't find my .exe: {}", e))?
            .parent().ok_or(format!("Couldn't find where my .exe lives"))?
@@ -265,23 +280,11 @@ impl EldenRingManager {
         &self.current
     }
 
-    pub fn get_ini(&self) -> Option<std::path::PathBuf> {
-        let Some(ref dir) = self.dir else { return None };
-        let old = dir.path().join("SeamlessCoop").join("cooppassword.ini");
-        let new = dir.path().join("SeamlessCoop").join("seamlesscoopsettings.ini");
-        let new2= dir.path().join("SeamlessCoop").join("ersc_settings.ini");
-
-        match (new2.is_file(),new.is_file(),old.is_file()) {
-            (true,  _,     _)     => Some(new2),
-            (false, true,  _)     => Some(new),
-            (false, false, true)  => Some(old),
-            (false, false, false) => { println!("{}: {}", old.display(), false); println!("{}: {}", new.display(), false); None },
-        }
-    }
 
     pub fn get_password(&self) -> Result<String, Box<dyn Error>> {
         let Some(ref dir) = self.dir else { return Err(format!("Couldn't find Elden Ring directory").into()) };
-        let ini_file = self.get_ini().ok_or(format!("Missing ini file in {}", dir.0.join("SeamlessCoop").display()))?;
+        let Some(ref current_release) = self.current else { Err(format!("No coop mod installed"))? };
+        let ini_file = dir.0.join(current_release.ini_path()?);
         let ini = crate::ini::Ini::read(&ini_file)?;
         Ok(ini.get("PASSWORD", "cooppassword").or(ini.get("SETTINGS", "cooppassword")).ok_or(format!("cooppassword setting not found in {}", ini_file.display()))?.to_string())
     }
