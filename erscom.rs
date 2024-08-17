@@ -205,6 +205,41 @@ slint::slint! {
         border-radius: 5px;
     }
 
+    component PasswordEdit {
+        callback new-password(string) -> bool;
+        in-out property text <=> pass.text;
+        property<bool> show-password: false;
+
+        Rectangle {
+            pass := LineEdit {
+                width: 100%;
+                input-type: root.show-password ? InputType.text : InputType.password;
+                edited => {
+                    root.new-password(pass.text)
+                }
+                accepted => {
+                    root.new-password(pass.text)
+                }
+            }
+            Rectangle {
+                width: image.width;
+                x: pass.width - image.width - 5px;
+
+                image := Image {
+                    colorize: white;
+                    source: root.show-password ? @image-url("assets/eye-slash-fill.svg") : @image-url("assets/eye-fill.svg");
+                    image-fit: cover;
+                    //width: self.height;
+                }
+                TouchArea {
+                    clicked => {
+                        root.show-password = !root.show-password;
+                    }
+                }
+            }
+        }
+    }
+
     export component MainWindow inherits Window {
         callback install(int) -> bool;
         pure callback version-at-index(int) -> string;
@@ -294,32 +329,8 @@ slint::slint! {
                         LightText {
                             text: "Password:";
                         }
-                        Rectangle {
-                            pass := LineEdit {
-                                width: 100%;
-                                input-type: root.show-password ? InputType.text : InputType.password;
-                                edited => {
-                                    root.new-password(pass.text)
-                                }
-                                accepted => {
-                                    root.new-password(pass.text)
-                                }
-                            }
-                            Rectangle {
-                                width: image.width;
-                                x: pass.width - image.width - 5px;
-
-                                image := Image {
-                                    colorize: white;
-                                    source: root.show-password ? @image-url("assets/eye-slash-fill.svg") : @image-url("assets/eye-fill.svg");
-                                    image-fit: cover;
-                                }
-                                TouchArea {
-                                    clicked => {
-                                        root.show-password = !root.show-password;
-                                    }
-                                }
-                            }
+                        pass := PasswordEdit {
+                            new-password(new) => { root.new-password(new) }
                         }
                     }
                     Row {
