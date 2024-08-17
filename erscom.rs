@@ -18,6 +18,7 @@
 
 use std::cell::RefCell;
 use std::error::Error;
+use std::path::PathBuf;
 use std::rc::Rc;
 
 mod manage;
@@ -57,8 +58,7 @@ async fn main() {
         let manager = manager.clone();
         move || {
             let manager = manager.borrow();
-            let installdir = manager.dir.as_ref().unwrap(); // unwrap can't fail because ui won't call us unless it's Some
-            if let Err(e) = launch(installdir) {
+            if let Err(e) = (|| -> Result<_,Box<dyn Error>> { launch(manager.launcher_path()?) })() { // My world for try/catch!!
                 error(e);
             }
         }
@@ -170,8 +170,7 @@ fn get_releases(win: &MainWindow, manager_ref: &Rc<RefCell<manage::EldenRingMana
     }
 }
 
-fn launch(installdir: &manage::EldenRingDir) -> Result<(), Box<dyn std::error::Error>> {
-    let exe = installdir.path().join("launch_elden_ring_seamlesscoop.exe");
+fn launch(exe: PathBuf) -> Result<(), Box<dyn std::error::Error>> {
     println!("Launching {:?}", &exe);
     if !exe.is_file() {
         Err(format!("Couldn't find {:?} to launch", exe))?;

@@ -151,14 +151,14 @@ impl Release {
         Some(disk_dll == zip_dll)
     }
 
-    pub fn ini_path(&self) -> Result<std::path::PathBuf, Box<dyn Error>> {
+    pub fn path_for(&self, extension: &str) -> Result<std::path::PathBuf, Box<dyn Error>> {
         if !self.downloaded() { Err(format!("Release {} zip is not downloaded", self.tag))? }
         let zip_path = self.download()?;
         let mut zip = zip::ZipArchive::new(std::fs::File::open(&zip_path)?).map_err(|e| format!("Couldn't read {}: {}", zip_path.to_string_lossy(), e))?;
         for i in 0..zip.len() {
             let file = zip.by_index(i)?;
             if let Some(name) = file.enclosed_name() {
-                if name.extension().map(|n| n.to_string_lossy().to_lowercase()) == Some("ini".to_string()) {
+                if name.extension().map(|n| n.to_string_lossy().to_lowercase() == extension).unwrap_or(false) {
                     return Ok(name.to_owned());
                 }
             }
@@ -280,11 +280,15 @@ impl EldenRingManager {
         &self.current
     }
 
-
-    pub fn get_password(&self) -> Result<String, Box<dyn Error>> {
+    pub fn ok(&self) -> Result<(&EldenRingDir, &Release), Box<dyn Error>> {
         let Some(ref dir) = self.dir else { return Err(format!("Couldn't find Elden Ring directory").into()) };
         let Some(ref current_release) = self.current else { Err(format!("No coop mod installed"))? };
-        let ini_file = dir.0.join(current_release.ini_path()?);
+        Ok((dir, current_release))
+    }
+
+    pub fn get_password(&self) -> Result<String, Box<dyn Error>> {
+        let (dir, current_release) = self.ok()?;
+        let ini_file = dir.0.join(current_release.path_for("ini")?);
         let ini = crate::ini::Ini::read(&ini_file)?;
         Ok(ini.get("PASSWORD", "cooppassword").or(ini.get("SETTINGS", "cooppassword")).ok_or(format!("cooppassword setting not found in {}", ini_file.display()))?.to_string())
     }
@@ -307,6 +311,11 @@ impl EldenRingManager {
         ini.set(section, "cooppassword", password);
         ini.write(&ini_file)?;
         Ok(())
+    }
+
+    pub fn launcher_path(&self) -> Result<std::path::PathBuf, Box<dyn Error>> {
+        let (dir, current_release) = self.ok()?;
+        Ok(dir.0.join(current_release.path_for("exe")?))
     }
 
 }
