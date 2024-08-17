@@ -25,12 +25,12 @@ mod manage;
 mod ini;
 
 #[tokio::main]
-async fn main() {
-    let win = MainWindow::new().unwrap();
+async fn main() -> Result<(), Box<dyn Error>> {
+    let win = MainWindow::new()?;
 
     win.on_exit(move || {
         println!("Exiting");
-        slint::quit_event_loop();
+        log_error(slint::quit_event_loop(), "quitting event loop");
     });
 
     let manager = Rc::new(RefCell::new(manage::EldenRingManager::new()));
@@ -81,7 +81,8 @@ async fn main() {
 
     if let Some(v) = manage::self_upgrade_version().unwrap_or(None) { win.set_my_upgrade_version(v.into()) }
 
-    win.run();
+    win.run()?;
+    Ok(())
 }
 
 fn error(error: Box<dyn Error>) {
@@ -91,19 +92,26 @@ fn error(error: Box<dyn Error>) {
         let dialog = dialog.as_weak();
         move || {
             let dialog = dialog.unwrap();
-            dialog.hide();
+            log_error(dialog.hide(), "hiding dialog");
         }
     });
-    dialog.show();
+    log_error(dialog.show(), &format!("showing error dialog for {}", error));
 }
 
 fn fatal(error: Box<dyn Error>) {
     let dialog = FatalDialog::new().unwrap();
     dialog.set_error(format!("{}", error).into());
     dialog.on_abort_clicked(move || {
-            slint::quit_event_loop();
+            log_error(slint::quit_event_loop(), "quitting event loop");
     });
-    dialog.show();
+    log_error(dialog.show(), &format!("showing fatal dialog for {}", error));
+}
+
+fn log_error<T, E: std::fmt::Display>(result: Result<T, E>, context: &str) {
+    match result {
+        Err(e) => println!("Error while {context}: {e}"),
+        _ => {},
+    }
 }
 
 fn get_releases(win: &MainWindow, manager_ref: &Rc<RefCell<manage::EldenRingManager>>) {
