@@ -35,7 +35,7 @@ Building From Source
 License
 -------
 
-Copyright © 2022 David Caldwell <david_erscom@porkrind.org>
+Copyright © 2022-2024 David Caldwell <david_erscom@porkrind.org>
 
 *TLDR: [GPLv3](LICENSE.md). You can redistribute the .exe (or a modified
 version) as long as you ship the source code used to build it alongside.*

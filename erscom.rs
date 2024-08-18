@@ -1,4 +1,4 @@
-// Copyright © 2022 David Caldwell <david@porkrind.org>
+// Copyright © 2022-2024 David Caldwell <david@porkrind.org>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
