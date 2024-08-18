@@ -15,6 +15,10 @@ Screenshot
 
 ![Screenshot](assets/screenshot.png)
 
+### You can edit the mod's settings:
+
+![Screenshot](assets/screenshot-settings.png)
+
 [1]: https://github.com/LukeYui/EldenRingSeamlessCoopRelease
 [2]: https://github.com/LukeYui/EldenRingSeamlessCoopRelease/releases
 [3]: https://github.com/caldwell/erscom/releases/latest
