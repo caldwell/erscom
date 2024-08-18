@@ -137,7 +137,10 @@ fn get_releases(win: &MainWindow, manager_ref: &Rc<RefCell<manage::EldenRingMana
         move |version_index| {
             if version_index < 0 { return "".into(); }
             let version = &releases[version_index as usize];
-            version.changelog.clone().into()
+            match version.changelog.as_str() {
+                "" => format!("No release notes available 🙁"),
+                s => s.to_owned(),
+            }.into()
         }
     });
 
