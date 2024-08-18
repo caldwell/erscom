@@ -160,6 +160,85 @@ fn get_releases(win: &MainWindow, manager_ref: &Rc<RefCell<manage::EldenRingMana
             }
         });
     }
+
+    win.on_open_settings({
+        let manager_ref = manager_ref.clone();
+        let main_win_weak = win.as_weak();
+        move || {
+            let manager = manager_ref.borrow();
+            let mut ini = manager.read_settings().try_error()?;
+            let win = SettingsWindow::new().try_error()?;
+            let mut settings_count = 0;
+            // A giant map to convert the rust structure into the slint structure (which has a similar shape but different types)
+            let model = slint::ModelRc::from(Rc::new(slint::VecModel::from(
+                ini.sections().map(|s| Section {
+                    name: s.name().into(),
+                    settings: {
+                        let mut settings = vec![];
+                        let mut help = String::new();
+                        for entry in s.entries() {
+                            match entry {
+                                ini::Entry::Blank => { help.truncate(0) },
+                                ini::Entry::Comment(line) => {
+                                    if help.len() > 0 { help.push_str("\n") }
+                                    help.push_str(line.trim_start_matches(&[' ', ';'][..]).trim_end());
+                                },
+                                ini::Entry::KV { key, value } => {
+                                    settings_count += 1;
+                                    settings.push(Setting {
+                                        kind: {
+                                            // There's no real good way to do this as there aren't really enough solid hints in the ini comments to get this exactly right.
+                                            if key.contains("password") { SettingKind::Password }
+                                            else if help.contains("%") { SettingKind::Number }
+                                            else if s.name().to_lowercase() == "save" ||
+                                                s.name().to_lowercase() == "language" { SettingKind::String }
+                                            else if help.contains("2 =") { SettingKind::Number } // Maybe try to parse this and make a menuselect out of it?
+                                            else if help.contains("1 =") { SettingKind::Boolean } // Maybe try to parse this and make a menuselect out of it?
+                                            else if s.name().to_lowercase() == "gameplay" { SettingKind::Boolean }
+                                            else { SettingKind::String }
+                                        },
+                                        help: help.into(),
+                                        name: key.clone().into(),
+                                        value: value.clone().into(),
+                                    });
+                                    help = String::new();
+                                },
+                            }
+                        }
+                        slint::ModelRc::from(Rc::new(slint::VecModel::from(settings)))
+                    },
+                }).collect::<Vec<Section>>()
+            )));
+            win.set_settings(model);
+            win.set_settings_count(settings_count);
+            win.on_save({
+                let manager_ref = manager_ref.clone();
+                let main_win_weak = main_win_weak.clone();
+                move |new_settings| {
+                    let manager = manager_ref.borrow();
+                    use slint::Model;
+                    for section in new_settings.as_any().downcast_ref::<slint::VecModel<Section>>().unwrap(/*guaranteed*/).iter() {
+                        for setting in section.settings.as_any().downcast_ref::<slint::VecModel<Setting>>().unwrap(/*guaranteed*/).iter() {
+                            ini.set(section.name.as_str(), setting.name.as_str(), setting.value.as_str());
+                        }
+                    }
+                    manager.write_settings(&ini).try_error()?;
+
+                    if let Some(main_win) = main_win_weak.upgrade() {
+                        main_win.set_password(manager.get_password().try_log("re-reading password after saving settings")?.into());
+                    }
+                }});
+            win.on_close({
+                let weak_win = win.as_weak();
+                move || {
+                    let win = weak_win.unwrap();
+                    win.hide().try_log("closing settings window")?;
+                }
+            });
+
+            win.show().try_log("showing settings dialog")?;
+        }
+    });
 }
 
 fn launch(exe: PathBuf) -> Result<(), Box<dyn std::error::Error>> {
@@ -212,7 +291,7 @@ where E: std::fmt::Display,
 }
 
 slint::slint! {
-    import { Button, ComboBox, LineEdit, ScrollView, StandardButton } from "std-widgets.slint";
+    import { Button, ComboBox, LineEdit, ListView, ScrollView, Switch, StandardButton } from "std-widgets.slint";
     component LightText inherits Text {
         color: white;
     }
@@ -270,6 +349,7 @@ slint::slint! {
         callback refresh;
         callback new-password(string) -> bool;
         callback open-url(string);
+        callback open-settings;
         in property<string> install-path;
         in property<string> current-version;
         in property<[string]> available-versions;
@@ -353,6 +433,13 @@ slint::slint! {
                         }
                         pass := PasswordEdit {
                             new-password(new) => { root.new-password(new) }
+                        }
+                        Button {
+                            text: "More Settings...";
+                            enabled: root.install-path != "" && cb.current-index != -1;
+                            clicked => {
+                                root.open-settings();
+                            }
                         }
                     }
                     Row {
@@ -514,6 +601,130 @@ slint::slint! {
         message := ErrorGuts {
         }
         StandardButton { kind: abort; }
+    }
+
+    ////////// Settings Window //////////
+
+    export enum SettingKind { boolean, string, password, number }
+
+    export struct Setting {
+        name: string,
+        kind: SettingKind,
+        value: string,
+        help: string,
+    }
+
+    export struct Section {
+        name: string,
+        settings: [Setting],
+    }
+
+    import { Palette } from "std-widgets.slint";
+    export component SettingsWindow inherits Window {
+        callback save([Section]);
+        callback close;
+        in-out property<[Section]> settings: [];
+        in property<int> settings_count; // Not possible to calculate here? (no recursion, no real loops)
+
+        property<length> em: 16px;
+        property<color> faint: Palette.foreground.mix(root.background, 30%);
+        default-font-size: 1*em;
+
+        init => {
+            Palette.color-scheme = ColorScheme.dark;
+        }
+
+        VerticalLayout {
+            padding: 1*em;
+            spacing: 10px;
+
+            frame := Frame {
+                VerticalLayout {
+                    padding: 1*em;
+                    ListView {
+                        pure function setting-height(rows: int, sections: int) -> length {
+                            return rows * (1*em /*name*/ + 5px/*spacing*/ + 0.75*em*2/*help*/ + 5px/*spacing*/ + 1px/*hline*/ + 5px*2/*padding*/) +
+                                sections * (1.1*em + 0.5*em/*padding*/) + 1*em/*fudge*/;
+                        }
+
+                        min-width: 300px + 10*em/*max(setting[min-width])*/ + (5px + 2*em)/*padding (right+left)*/ + 25px/*scrollbar*/;
+                        min-height: setting-height(5, 1);
+                        preferred-height: setting-height(settings_count, settings.length);
+
+                        for section[index] in settings: VerticalLayout {
+                            padding-bottom: 0.5*em;
+                            LightText {
+                                text: section.name;
+                                font-size: 1.1*em;
+                            }
+                            for setting[index] in section.settings: VerticalLayout {
+                                width: parent.width - 25px/*scrollbar*/;
+                                padding: 5px;
+                                padding-left: 2*em;
+                                spacing: 5px;
+                                HorizontalLayout {
+                                    LightText {
+                                        text: setting.name;
+                                        width: 300px; // hack
+                                    }
+                                    if setting.kind == SettingKind.boolean : Switch/*CheckBox*/ {
+                                        checked: setting.value == "1";
+                                        toggled => { setting.value = self.checked ? "1" : "0"; }
+                                    }
+                                    if setting.kind == SettingKind.number : LineEdit {
+                                        text: setting.value;
+                                        input-type: number;
+                                        min-width: 4*em;
+                                        max-width: 8*em;
+                                        edited(new) => { setting.value = new; }
+                                        accepted(new) => { setting.value = new; }
+                                    }
+                                    if setting.kind == SettingKind.string : LineEdit {
+                                        text: setting.value;
+                                        input-type: text;
+                                        min-width: 8*em;
+                                        edited(new) => { setting.value = new; }
+                                        accepted(new) => { setting.value = new; }
+                                    }
+                                    if setting.kind == SettingKind.password : PasswordEdit {
+                                        text: setting.value;
+                                        min-width: 10*em;
+                                        new-password(new) => { setting.value = new; true }
+                                    }
+                                }
+                                LightText {
+                                    padding-bottom: 5px;
+                                    width: 300px;
+                                    text: setting.help;
+                                    color: root.faint;
+                                    wrap: word-wrap;
+                                    font-size: 0.75*em;
+                                }
+                                if index < settings.length - 1: Rectangle {
+                                    height: 1px;
+                                    background: root.faint;
+                                }
+                            }
+                        }
+                    }}
+            }
+            buttons := HorizontalLayout {
+                vertical-stretch: 0;
+                spacing: 10*em;
+                alignment: space-between;
+                Button {
+                    text: "Save Changes";
+                    clicked => {
+                        root.save(settings);
+                        root.close();
+                    }
+                }
+                Button {
+                    text: "Discard Changes";
+                    clicked => { root.close() }
+                }
+            }
+        }
     }
 
 }
