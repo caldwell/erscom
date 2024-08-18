@@ -13,9 +13,11 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-use std::error::Error;
+use std::{error::Error, fs::File, path::{Path, PathBuf}};
 
 use serde::{Serialize, Deserialize};
+
+use crate::ini::Ini;
 
 #[derive(Debug, Clone)]
 pub struct Release {
@@ -83,7 +85,7 @@ impl Release {
             let name = file.enclosed_name().unwrap(); // Guaranteed by instal_uninstall()
             println!("Filename: {}{}  -> {:?}", name.to_string_lossy(), if name.is_dir() { "/" } else { "" }, dest_path);
             std::fs::create_dir_all(&dest_path.parent().ok_or(format!("No parent for {:?}??", dest_path))?)?;
-            let mut dest = std::fs::File::create(&dest_path).map_err(|e| format!("Error creating {:?}: {}", dest_path, e))?;
+            let mut dest = File::create(&dest_path).map_err(|e| format!("Error creating {:?}: {}", dest_path, e))?;
             if let Err(e) = std::io::copy(file, &mut dest) {
                 Err(format!("Error writing {:?}: {}", dest_path, e))?;
             }
@@ -99,7 +101,7 @@ impl Release {
         })
     }
 
-    fn install_uninstall<F>(&self, installdir: &EldenRingDir, handler: F) -> Result<(), Box<dyn Error>> where F: Fn(&mut zip::read::ZipFile, std::path::PathBuf) -> Result<(), Box<dyn Error>> {
+    fn install_uninstall<F>(&self, installdir: &EldenRingDir, handler: F) -> Result<(), Box<dyn Error>> where F: Fn(&mut zip::read::ZipFile, PathBuf) -> Result<(), Box<dyn Error>> {
         let path = self.download()?;
         println!("Local zip: {}", path.to_string_lossy());
 
@@ -107,7 +109,7 @@ impl Release {
             Err(format!("{} is not a directory!", installdir))?;
         }
 
-        let mut zip = zip::ZipArchive::new(std::fs::File::open(&path)?).map_err(|e| format!("Couldn't read {}: {}", path.to_string_lossy(), e))?;
+        let mut zip = zip::ZipArchive::new(File::open(&path)?).map_err(|e| format!("Couldn't read {}: {}", path.to_string_lossy(), e))?;
         for i in 0..zip.len() {
             let mut file = zip.by_index(i)?;
             if let Some(name) = file.enclosed_name() {
@@ -123,27 +125,27 @@ impl Release {
     }
 
     pub fn installed(&self, installdir: &EldenRingDir) -> Option<bool> {
-        match (self.file_installed(installdir, &std::path::Path::new("SeamlessCoop").join("elden_ring_seamless_coop.dll")),
-               self.file_installed(installdir, &std::path::Path::new("SeamlessCoop").join("ersc.dll"))) {
+        match (self.file_installed(installdir, &Path::new("SeamlessCoop").join("elden_ring_seamless_coop.dll")),
+               self.file_installed(installdir, &Path::new("SeamlessCoop").join("ersc.dll"))) {
             (None, None) => None,
             (Some(true), _) | (_, Some(true)) => Some(true),
             (_,_) => Some(false),
         }
     }
 
-    pub fn file_installed(&self, installdir: &EldenRingDir, path: &std::path::PathBuf) -> Option<bool> {
+    pub fn file_installed(&self, installdir: &EldenRingDir, path: &PathBuf) -> Option<bool> {
         let disk_path = installdir.path().join(path);
         let zip_file_path = path.iter().map(|p| p.to_string_lossy()).collect::<Vec<_>>().join("/");
         use std::io::Read;
         if !self.downloaded() {
             return None;
         }
-        let mut disk_file = std::fs::File::open(&disk_path).ok()?;
+        let mut disk_file = File::open(&disk_path).ok()?;
         let mut disk_dll = Vec::new();
         disk_file.read_to_end(&mut disk_dll).ok()?;
 
         let zip_path = self.download().ok()?;
-        let mut zip = zip::ZipArchive::new(std::fs::File::open(&zip_path).ok()?).map_err(|e| format!("Couldn't read {}: {}", zip_path.to_string_lossy(), e)).ok()?;
+        let mut zip = zip::ZipArchive::new(File::open(&zip_path).ok()?).map_err(|e| format!("Couldn't read {}: {}", zip_path.to_string_lossy(), e)).ok()?;
         let mut zip_file = zip.by_name(&zip_file_path).ok()?;
         let mut zip_dll = Vec::new();
         zip_file.read_to_end(&mut zip_dll).ok()?;
@@ -151,10 +153,10 @@ impl Release {
         Some(disk_dll == zip_dll)
     }
 
-    pub fn path_for(&self, extension: &str) -> Result<std::path::PathBuf, Box<dyn Error>> {
+    pub fn path_for(&self, extension: &str) -> Result<PathBuf, Box<dyn Error>> {
         if !self.downloaded() { Err(format!("Release {} zip is not downloaded", self.tag))? }
         let zip_path = self.download()?;
-        let mut zip = zip::ZipArchive::new(std::fs::File::open(&zip_path)?).map_err(|e| format!("Couldn't read {}: {}", zip_path.to_string_lossy(), e))?;
+        let mut zip = zip::ZipArchive::new(File::open(&zip_path)?).map_err(|e| format!("Couldn't read {}: {}", zip_path.to_string_lossy(), e))?;
         for i in 0..zip.len() {
             let file = zip.by_index(i)?;
             if let Some(name) = file.enclosed_name() {
@@ -166,7 +168,7 @@ impl Release {
         Err(format!("No settings file found in .zip!"))?
     }
 
-    pub fn cache_path(&self) -> Result<std::path::PathBuf, Box<dyn Error>> {
+    pub fn cache_path(&self) -> Result<PathBuf, Box<dyn Error>> {
         Ok(add_extension(&std::env::current_exe().map_err(|e| format!("Couldn't find my .exe: {}", e))?
            .parent().ok_or(format!("Couldn't find where my .exe lives"))?
            .join("release cache")
@@ -184,7 +186,7 @@ impl Release {
         return false;
     }
 
-    pub fn download(&self) -> Result<std::path::PathBuf, Box<dyn Error>> {
+    pub fn download(&self) -> Result<PathBuf, Box<dyn Error>> {
         let path = self.cache_path()?;
         if std::fs::metadata(&path).map(|m| m.is_file()).unwrap_or(false) {
             return Ok(path);
@@ -199,7 +201,7 @@ impl Release {
                 .send()?;
 
             let download_path = add_extension(&path, "partial");
-            let mut file = std::fs::File::create(&download_path)?;
+            let mut file = File::create(&download_path)?;
             resp.copy_to(&mut file)?;
 
             std::fs::rename(&download_path, &path)?;
@@ -210,7 +212,7 @@ impl Release {
 }
 
 #[derive(Clone, Debug)]
-pub struct EldenRingDir(std::path::PathBuf);
+pub struct EldenRingDir(PathBuf);
 
 impl EldenRingDir {
     #[cfg(target_os = "windows")]
@@ -219,7 +221,7 @@ impl EldenRingDir {
         // Find the install dir in the registry
         hklm.open_subkey(r"SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\Steam App 1245620")
             .and_then(|subkey| subkey.get_value::<std::ffi::OsString,_>("InstallLocation"))
-            .map(|oss| EldenRingDir(std::path::Path::new(&oss).join("Game").to_path_buf()))
+            .map(|oss| EldenRingDir(Path::new(&oss).join("Game").to_path_buf()))
             .ok().or(std::env::current_exe().ok()  // Not in registry? Check the dir our exe is in
                      .and_then(|me| me.parent().map(|p| p.to_path_buf()))
                      .and_then(|mydir| mydir.join("eldenring.exe").is_file().then(|| EldenRingDir(mydir))))
@@ -232,7 +234,7 @@ impl EldenRingDir {
                           .join("pretend-installdir")))
     }
 
-    pub fn path(&self) -> &std::path::Path {
+    pub fn path(&self) -> &Path {
         &self.0
     }
 
@@ -286,17 +288,17 @@ impl EldenRingManager {
         Ok((dir, current_release))
     }
 
-    fn get_ini_path(&self) -> Result<std::path::PathBuf, Box<dyn Error>> {
+    fn get_ini_path(&self) -> Result<PathBuf, Box<dyn Error>> {
         let (dir, current_release) = self.ok()?;
         Ok(dir.0.join(current_release.path_for("ini")?))
     }
 
-    pub fn read_settings(&self) -> Result<crate::ini::Ini, Box<dyn Error>> {
+    pub fn read_settings(&self) -> Result<Ini, Box<dyn Error>> {
         let ini_file = self.get_ini_path()?;
-        Ok(crate::ini::Ini::read(&ini_file)?)
+        Ok(Ini::read(&ini_file)?)
     }
 
-    pub fn write_settings(&self, settings: &crate::ini::Ini) -> Result<(), Box<dyn Error>> {
+    pub fn write_settings(&self, settings: &Ini) -> Result<(), Box<dyn Error>> {
         let ini_file = self.get_ini_path()?;
         settings.write(&ini_file)?;
         Ok(())
@@ -320,14 +322,14 @@ impl EldenRingManager {
         Ok(())
     }
 
-    pub fn set_password_for(&self, password: &str, ini_file: &std::path::Path, section: &str) -> Result<(), Box<dyn Error>> {
-        let mut ini = crate::ini::Ini::read(&ini_file)?;
+    pub fn set_password_for(&self, password: &str, ini_file: &Path, section: &str) -> Result<(), Box<dyn Error>> {
+        let mut ini = Ini::read(&ini_file)?;
         ini.set(section, "cooppassword", password);
         ini.write(&ini_file)?;
         Ok(())
     }
 
-    pub fn launcher_path(&self) -> Result<std::path::PathBuf, Box<dyn Error>> {
+    pub fn launcher_path(&self) -> Result<PathBuf, Box<dyn Error>> {
         let (dir, current_release) = self.ok()?;
         Ok(dir.0.join(current_release.path_for("exe")?))
     }
@@ -335,7 +337,7 @@ impl EldenRingManager {
 }
 
 // Stolen from https://users.rust-lang.org/t/append-an-additional-extension/23586/12
-fn add_extension(path: &std::path::PathBuf, extension: impl AsRef<std::path::Path>) -> std::path::PathBuf {
+fn add_extension(path: &PathBuf, extension: impl AsRef<Path>) -> PathBuf {
     match path.extension() {
         Some(ext) => {
             let mut ext = ext.to_os_string();
