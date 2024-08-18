@@ -286,11 +286,25 @@ impl EldenRingManager {
         Ok((dir, current_release))
     }
 
-    pub fn get_password(&self) -> Result<String, Box<dyn Error>> {
+    fn get_ini_path(&self) -> Result<std::path::PathBuf, Box<dyn Error>> {
         let (dir, current_release) = self.ok()?;
-        let ini_file = dir.0.join(current_release.path_for("ini")?);
-        let ini = crate::ini::Ini::read(&ini_file)?;
-        Ok(ini.get("PASSWORD", "cooppassword").or(ini.get("SETTINGS", "cooppassword")).ok_or(format!("cooppassword setting not found in {}", ini_file.display()))?.to_string())
+        Ok(dir.0.join(current_release.path_for("ini")?))
+    }
+
+    pub fn read_settings(&self) -> Result<crate::ini::Ini, Box<dyn Error>> {
+        let ini_file = self.get_ini_path()?;
+        Ok(crate::ini::Ini::read(&ini_file)?)
+    }
+
+    pub fn write_settings(&self, settings: &crate::ini::Ini) -> Result<(), Box<dyn Error>> {
+        let ini_file = self.get_ini_path()?;
+        settings.write(&ini_file)?;
+        Ok(())
+    }
+
+    pub fn get_password(&self) -> Result<String, Box<dyn Error>> {
+        let ini = self.read_settings()?;
+        Ok(ini.get("PASSWORD", "cooppassword").or(ini.get("SETTINGS", "cooppassword")).ok_or(format!("cooppassword setting not found in {}", self.get_ini_path()?.display()))?.to_string())
     }
 
     pub fn set_password(&self, password: &str) -> Result<(), Box<dyn Error>> {
