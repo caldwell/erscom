@@ -21,13 +21,13 @@ pub struct Ini {
 }
 
 #[derive(Debug, Clone)]
-struct Section {
+pub struct Section {
     name: String,
     entry: Vec<Entry>,
 }
 
 #[derive(Debug, Clone)]
-enum Entry {
+pub enum Entry {
     KV { key: String, value: String },
     Comment(String), // Includes comment character itself
     Blank,
@@ -119,5 +119,17 @@ impl Ini {
         self.section.push(Section { name: section.trim().to_string(),
                                     entry: vec![new] });
     }
+
+    pub fn sections(&self) -> impl Iterator<Item=&Section> {
+        Box::new(self.section.iter())
+    }
 }
 
+impl Section {
+    pub fn entries(&self) -> impl Iterator<Item=&Entry> {
+        self.entry.iter()
+    }
+    pub fn name(&self) -> &str {
+        self.name.as_str()
+    }
+}
