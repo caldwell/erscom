@@ -632,6 +632,7 @@ slint::slint! {
         property<length> em: 16px;
         property<color> faint: Palette.foreground.mix(root.background, 30%);
         default-font-size: 1*em;
+        title: "Elden Ring Seamless Co-op Settings Editor";
 
         init => {
             Palette.color-scheme = ColorScheme.dark;
