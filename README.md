@@ -19,6 +19,19 @@ Screenshot
 [2]: https://github.com/LukeYui/EldenRingSeamlessCoopRelease/releases
 [3]: https://github.com/caldwell/erscom/releases/latest
 
+Building From Source
+--------------------
+
+* Debug Build:
+      cargo build
+
+* Release Build:
+      cargo build --release
+
+* Cross compile to Windows:
+      rustup target add x86_64-pc-windows-gnu
+      cargo build --target x86_64-pc-windows-gnu --release
+
 License
 -------
 
