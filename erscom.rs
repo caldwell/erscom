@@ -291,6 +291,7 @@ slint::slint! {
                             text: "Elden Ring:";
                         }
                         LightText {
+                            colspan: 2;
                             wrap: word-wrap;
                             text: root.install-path == "" ? "<Not Found>" : root.install-path;
                         }
