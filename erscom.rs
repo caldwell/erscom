@@ -15,6 +15,7 @@
 
 // This removes the ugly debug window that comes up on windows
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
+#![feature(try_trait_v2)]
 
 use std::cell::RefCell;
 use std::error::Error;
@@ -23,6 +24,7 @@ use std::rc::Rc;
 
 mod manage;
 mod ini;
+mod breaker;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error>> {
@@ -30,7 +32,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
     win.on_exit(move || {
         println!("Exiting");
-        log_error(slint::quit_event_loop(), "quitting event loop");
+        slint::quit_event_loop().try_log("quitting event loop");
     });
 
     let manager = Rc::new(RefCell::new(manage::EldenRingManager::new()));
@@ -45,10 +47,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
         move |password| {
             println!("New password: {}", password);
             if manager.borrow().found_dir() {
-                if let Err(e) = manager.borrow().set_password(&password) {
-                    error(e);
-                    return false;
-                }
+                manager.borrow().set_password(&password).try_error()?;
             }
             true
         }
@@ -58,9 +57,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
         let manager = manager.clone();
         move || {
             let manager = manager.borrow();
-            if let Err(e) = (|| -> Result<_,Box<dyn Error>> { launch(manager.launcher_path()?) })() { // My world for try/catch!!
-                error(e);
-            }
+            launch(manager.launcher_path().try_error()?).try_error()?;
         }
     });
 
@@ -91,34 +88,24 @@ fn error(error: Box<dyn Error>) {
     dialog.on_ok_clicked({
         let dialog = dialog.as_weak();
         move || {
-            let dialog = dialog.unwrap();
-            log_error(dialog.hide(), "hiding dialog");
+            dialog.unwrap().hide().try_log("hiding dialog")?;
         }
     });
-    log_error(dialog.show(), &format!("showing error dialog for {}", error));
+    dialog.show().try_log(&format!("showing error dialog for {}", error))?;
 }
 
 fn fatal(error: Box<dyn Error>) {
     let dialog = FatalDialog::new().unwrap();
     dialog.set_error(format!("{}", error).into());
     dialog.on_abort_clicked(move || {
-            log_error(slint::quit_event_loop(), "quitting event loop");
+            slint::quit_event_loop().try_log("quitting event loop");
     });
-    log_error(dialog.show(), &format!("showing fatal dialog for {}", error));
-}
-
-fn log_error<T, E: std::fmt::Display>(result: Result<T, E>, context: &str) {
-    match result {
-        Err(e) => println!("Error while {context}: {e}"),
-        _ => {},
-    }
+    dialog.show().try_log(&format!("showing fatal dialog for {}", error))?;
 }
 
 fn get_releases(win: &MainWindow, manager_ref: &Rc<RefCell<manage::EldenRingManager>>) {
     let mut manager = manager_ref.borrow_mut();
-    if let Err(e) = manager.fetch_releases() {
-        return fatal(e);
-    }
+    manager.fetch_releases().try_fatal()?;
 
     //println!("Releases:\n{:?}", releases);
     win.set_available_versions(Rc::new(slint::VecModel::<slint::SharedString>::from(manager.releases.iter()
@@ -168,10 +155,7 @@ fn get_releases(win: &MainWindow, manager_ref: &Rc<RefCell<manage::EldenRingMana
                     }
                 }
                 println!("Installing {}", version.tag);
-                if let Err(e) = version.install(&installdir) {
-                    error(e);
-                    return false;
-                }
+                version.install(&installdir).try_error()?;
                 true
             }
         });
@@ -190,6 +174,41 @@ fn launch(exe: PathBuf) -> Result<(), Box<dyn std::error::Error>> {
         let _ = child.wait(); // we really don't care if it failed
     });
     Ok(())
+}
+
+use crate::breaker::Breaker;
+
+/// Convenience functions added to Result to display dialogs for errors or log them to stdout (eating the error
+/// so you can use `?` in a function that returns `()`)
+trait UIError<T> {
+    fn try_log(self, context: &str) -> Breaker<T>;
+    fn try_error(self) -> Breaker<T>;
+    fn try_fatal(self) -> Breaker<T>;
+}
+
+impl<T,E> UIError<T> for Result<T, E>
+where E: std::fmt::Display,
+      E: Into<Box<dyn Error>> {
+    fn try_log(self, context: &str) -> Breaker<T> {
+        match self {
+            Ok(t) => Breaker::cont(t),
+            Err(e) => { println!("Error while {context}: {e}"); Breaker::brk() },
+        }
+    }
+
+    fn try_error(self) -> Breaker<T> {
+        match self {
+            Ok(t) => Breaker::cont(t),
+            Err(e) => { error(e.into()); Breaker::brk() },
+        }
+    }
+
+    fn try_fatal(self) -> Breaker<T> {
+        match self {
+            Ok(t) => Breaker::cont(t),
+            Err(e) => { fatal(e.into()); Breaker::brk() },
+        }
+    }
 }
 
 slint::slint! {
