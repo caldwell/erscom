@@ -133,7 +133,7 @@ fn get_releases(win: &MainWindow, manager_ref: &Rc<RefCell<manage::EldenRingMana
     }
     match manager.get_password() {
         Ok(ref password) => { win.set_password(password.into()) },
-        Err(e) => { println!("Error: {:?}", e) },
+        Err(e) => { println!("Couldn't get password: {:?}", e) },
     }
 
     win.on_version_at_index({
