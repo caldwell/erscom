@@ -259,6 +259,8 @@ slint::slint! {
         }
     }
 
+    ////////// Main Window //////////
+
     export component MainWindow inherits Window {
         callback install(int) -> bool;
         pure callback version-at-index(int) -> string;
@@ -486,6 +488,8 @@ slint::slint! {
             }
         }
     }
+
+    ////////// Error Dialogs //////////
 
     export component ErrorDialog inherits Dialog {
         in property<string> error <=> message.error;
