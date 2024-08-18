@@ -29,7 +29,8 @@ struct Section {
 #[derive(Debug, Clone)]
 enum Entry {
     KV { key: String, value: String },
-    Comment(String), // Includes comment character itself and also blank lines
+    Comment(String), // Includes comment character itself
+    Blank,
 }
 
 impl Ini {
@@ -41,10 +42,13 @@ impl Ini {
 
         let section_re = regex::Regex::new(r"^\s*\[([^]]+)\]\s*$").unwrap();
         let kv_re      = regex::Regex::new(r"^\s*([^=]+)\s*=\s*(.*)$").unwrap();
-        let comment_re = regex::Regex::new(r"^\s*(?:;.*|)$").unwrap();
+        let blank_re   = regex::Regex::new(r"^\s*$").unwrap();
+        let comment_re = regex::Regex::new(r"^\s*(?:;.*)$").unwrap();
         for line in std::io::BufReader::new(file).lines() {
             let line = line?;
-            if comment_re.is_match(&line) {
+            if blank_re.is_match(&line) {
+                section.entry.push(Entry::Blank);
+            } else if comment_re.is_match(&line) {
                 section.entry.push(Entry::Comment(line.to_string()));
             } else if let Some(caps) = section_re.captures(&line) {
                 ini.section.push(Section { name: caps.get(1).unwrap().as_str().trim().to_string(),
@@ -71,6 +75,7 @@ impl Ini {
                 match e {
                     Entry::KV { key: k, value: v } => { file.write_fmt(format_args!("{} = {}\n", k, v))?; }
                     Entry::Comment(line)           => { file.write_fmt(format_args!("{}\n", line))?; }
+                    Entry::Blank                   => { file.write_fmt(format_args!("\n"))?; }
                 }
             }
         }
