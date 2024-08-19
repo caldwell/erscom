@@ -106,18 +106,24 @@ fn fatal(error: Box<dyn Error>) {
 fn get_releases(win: &MainWindow, manager_ref: &Rc<RefCell<manage::EldenRingManager>>) {
     let mut manager = manager_ref.borrow_mut();
     manager.fetch_releases().try_fatal()?;
-
     //println!("Releases:\n{:?}", releases);
+
+    win.set_current_version("".into());
+    let current_release_tag = manager.detect_current_release().as_ref().map(|r| r.tag.clone());
+    if let Some(ref tag) = current_release_tag {
+        win.set_current_version(tag.clone().into());
+    }
+
     win.set_available_versions(Rc::new(slint::VecModel::<slint::SharedString>::from(manager.releases.iter()
                                                                                     .map(|r| format!("{}  --  {}  {}",
                                                                                                      r.tag, r.date,
-                                                                                                     if r.downloaded() { "[ Downloaded ]" } else { "" }).into())
+                                                                                                     match (r.downloaded(), current_release_tag.as_ref()) {
+                                                                                                         (_, Some(cur_tag)) if cur_tag == &r.tag => "[ Installed ]",
+                                                                                                         (true, _) => "[ Downloaded ]",
+                                                                                                         _ => ""
+                                                                                                     }).into())
                                                                                     .collect::<Vec<slint::SharedString>>())).into());
 
-    win.set_current_version("".into());
-    if let Some(release) = manager.detect_current_release() {
-        win.set_current_version(release.tag.clone().into());
-    }
     match manager.get_password() {
         Ok(ref password) => { win.set_password(password.into()) },
         Err(e) => { println!("Couldn't get password: {:?}", e) },
