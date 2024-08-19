@@ -360,10 +360,11 @@ slint::slint! {
         in property<string> my-upgrade-version: "";
         property<bool> show-password: false;
         in-out property password <=> pass.text;
+        property<length> em: 16px;
 
         title: "Elden Ring Seamless Co-op Manager  v" + my-version;
         icon: @image-url("assets/eldenringlogo.jpg");
-        default-font-size: 16px;
+        default-font-size: 1*em;
         max-width: 10000px;
 
         Rectangle {
@@ -402,10 +403,24 @@ slint::slint! {
                     }
                     Row {
                         LightText {
+                            vertical-alignment: center;
                             text: "Current Mod Version:";
                         }
                         LightText {
+                            vertical-alignment: center;
                             text: root.current-version == "" ? "<Unknown>" : root.current-version;
+                        }
+                        Button {
+                            horizontal-stretch: 0;
+                            text: "Launch";
+                            height: 4*em;
+                            width: 10*em;
+                            primary: true;
+                            clicked => {
+                                root.launch()
+                            }
+
+                            enabled: root.install-path != "" && cb.current-index != -1;
                         }
                     }
                     Row {
@@ -443,17 +458,6 @@ slint::slint! {
                             clicked => {
                                 root.open-settings();
                             }
-                        }
-                    }
-                    Row {
-                        Button {
-                            text: "Launch";
-                            colspan: 3;
-                            clicked => {
-                                root.launch()
-                            }
-
-                            enabled: root.install-path != "" && cb.current-index != -1;
                         }
                     }
                 }
