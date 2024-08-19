@@ -539,6 +539,7 @@ slint::slint! {
             }
         }
         if root.my-upgrade-version != "" : Rectangle {
+            y: 0;
             height: 20px;
             background: black;
             HorizontalLayout {
