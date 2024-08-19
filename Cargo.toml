@@ -21,5 +21,5 @@ webbrowser = "0.7.1"
 winreg = "0.10"
 
 [build-dependencies]
-winres = "0.1.12"
+winresource = "0.1.17"
 which = "4.2.5"

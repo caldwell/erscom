@@ -1,4 +1,4 @@
-// Copyright © 2022 David Caldwell <david@porkrind.org>
+// Copyright © 2022-2024 David Caldwell <david@porkrind.org>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
@@ -15,7 +15,7 @@
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     if std::env::var("CARGO_CFG_TARGET_OS").unwrap() == "windows" { // We can cross compile, so don't use cfg!(target_os = "windows")
-        let mut res = winres::WindowsResource::new();
+        let mut res = winresource::WindowsResource::new();
         if which::which("x86_64-w64-mingw32-windres").is_ok() { // Are we cross-compiling?
             res.set_windres_path("x86_64-w64-mingw32-windres");
             res.set_ar_path("x86_64-w64-mingw32-ar");
@@ -32,8 +32,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 .map(|s| s.parse::<u16>().unwrap_or(0) as u64)
                 .chain([0].iter().map(|r| *r).cycle())
                 .take(4).collect();
-            res.set_version_info(winres::VersionInfo::PRODUCTVERSION, v[0] << 48 | v[1] << 32 | v[2] << 16 | v[3]);
-            res.set_version_info(winres::VersionInfo::FILEVERSION,    v[0] << 48 | v[1] << 32 | v[2] << 16 | v[3]);
+            res.set_version_info(winresource::VersionInfo::PRODUCTVERSION, v[0] << 48 | v[1] << 32 | v[2] << 16 | v[3]);
+            res.set_version_info(winresource::VersionInfo::FILEVERSION,    v[0] << 48 | v[1] << 32 | v[2] << 16 | v[3]);
         }
         res.compile()?;
      }
