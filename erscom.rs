@@ -175,7 +175,7 @@ fn get_releases(win: &MainWindow, manager_ref: &Rc<RefCell<manage::EldenRingMana
         let main_win_weak = win.as_weak();
         move || {
             let manager = manager_ref.borrow();
-            let mut ini = manager.read_settings().try_error()?;
+            let ini = manager.read_settings().try_error()?;
             let win = SettingsWindow::new().try_error()?;
             let mut settings_count = 0;
             // A giant map to convert the rust structure into the slint structure (which has a similar shape but different types)
@@ -220,17 +220,21 @@ fn get_releases(win: &MainWindow, manager_ref: &Rc<RefCell<manage::EldenRingMana
             )));
             win.set_settings(model);
             win.set_settings_count(settings_count);
+            let ini_rc = Rc::new(RefCell::new(ini));
+            win.on_set({
+                let ini_rc = ini_rc.clone();
+                move |section, key, new_value| {
+                    let mut ini = ini_rc.borrow_mut();
+                    ini.set(section.as_str(), key.as_str(), new_value.as_str());
+                }
+            });
             win.on_save({
+                let ini_rc = ini_rc.clone();
                 let manager_ref = manager_ref.clone();
                 let main_win_weak = main_win_weak.clone();
-                move |new_settings| {
+                move || {
+                    let ini = ini_rc.borrow();
                     let manager = manager_ref.borrow();
-                    use slint::Model;
-                    for section in new_settings.as_any().downcast_ref::<slint::VecModel<Section>>().unwrap(/*guaranteed*/).iter() {
-                        for setting in section.settings.as_any().downcast_ref::<slint::VecModel<Setting>>().unwrap(/*guaranteed*/).iter() {
-                            ini.set(section.name.as_str(), setting.name.as_str(), setting.value.as_str());
-                        }
-                    }
                     manager.write_settings(&ini).try_error()?;
 
                     if let Some(main_win) = main_win_weak.upgrade() {
@@ -635,7 +639,8 @@ slint::slint! {
 
     import { Palette } from "std-widgets.slint";
     export component SettingsWindow inherits Window {
-        callback save([Section]);
+        callback set(string, string, string);
+        callback save;
         callback close;
         in-out property<[Section]> settings: [];
         in property<int> settings_count; // Not possible to calculate here? (no recursion, no real loops)
@@ -684,27 +689,27 @@ slint::slint! {
                                     }
                                     if setting.kind == SettingKind.boolean : Switch/*CheckBox*/ {
                                         checked: setting.value == "1";
-                                        toggled => { setting.value = self.checked ? "1" : "0"; }
+                                        toggled => { set(section.name, setting.name, self.checked ? "1" : "0"); }
                                     }
                                     if setting.kind == SettingKind.number : LineEdit {
                                         text: setting.value;
                                         input-type: number;
                                         min-width: 4*em;
                                         max-width: 8*em;
-                                        edited(new) => { setting.value = new; }
-                                        accepted(new) => { setting.value = new; }
+                                        edited(new) => { set(section.name, setting.name, new); }
+                                        accepted(new) => { set(section.name, setting.name, new); }
                                     }
                                     if setting.kind == SettingKind.string : LineEdit {
                                         text: setting.value;
                                         input-type: text;
                                         min-width: 8*em;
-                                        edited(new) => { setting.value = new; }
-                                        accepted(new) => { setting.value = new; }
+                                        edited(new) => { set(section.name, setting.name, new); }
+                                        accepted(new) => { set(section.name, setting.name, new); }
                                     }
                                     if setting.kind == SettingKind.password : PasswordEdit {
                                         text: setting.value;
                                         min-width: 10*em;
-                                        new-password(new) => { setting.value = new; true }
+                                        new-password(new) => { set(section.name, setting.name, new); true }
                                     }
                                 }
                                 LightText {
@@ -730,7 +735,7 @@ slint::slint! {
                 Button {
                     text: "Save Changes";
                     clicked => {
-                        root.save(settings);
+                        root.save();
                         root.close();
                     }
                 }
