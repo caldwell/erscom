@@ -14,6 +14,10 @@
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
+    let copyright = std::fs::read_to_string(env!("CARGO_PKG_README"))?.lines().find(|l| l.trim().starts_with("Copyright"))
+        .ok_or(format!("Missing copyright in README"))?.trim().to_owned();
+    println!("cargo::rerun-if-changed={}", env!("CARGO_PKG_README"));
+    println!("cargo::rustc-env=COPYRIGHT={copyright}");
     if std::env::var("CARGO_CFG_TARGET_OS").unwrap() == "windows" { // We can cross compile, so don't use cfg!(target_os = "windows")
         let mut res = winresource::WindowsResource::new();
         if which::which("x86_64-w64-mingw32-windres").is_ok() { // Are we cross-compiling?
@@ -23,7 +27,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         res.set_icon("assets/eldenringlogo.ico")
             .set("ProductName", "Elden Ring Seamless CoOp Manager")
             .set("InternalName", "Elden-Ring-Seamless-Co-Op-Manager")
-            .set("LegalCopyright", "© 2022 David Caldwell <david_erscom@porkrind.org>")
+            .set("LegalCopyright", copyright.trim_start_matches("Copyright "))
             .set("Comments", "I think this David Caldwell guy is a cool dude.");
         if let Ok(version) = std::env::var("VERSION") {
             res.set("FileVersion", &version);

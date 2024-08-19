@@ -74,6 +74,11 @@ async fn main() -> Result<(), Box<dyn Error>> {
         let _ = webbrowser::open(&url);
     });
 
+    win.set_copyright(regex::Regex::new(r"^Copyright (.*) <.*>$").unwrap()
+        .captures(env!("COPYRIGHT")/* Set by build.rs */)
+        .expect("copyright didn't match")
+        .get(1).unwrap().as_str().into());
+
     if let Some(v) = option_env!("VERSION") { win.set_my_version(v.into()); }
 
     if let Some(v) = manage::self_upgrade_version().unwrap_or(None) { win.set_my_upgrade_version(v.into()) }
@@ -366,6 +371,7 @@ slint::slint! {
         in property<string> install-path;
         in property<string> current-version;
         in property<[string]> available-versions;
+        in property<string> copyright: "[[ failed-to-detect-copyright ]]";
         in property<string> my-version: "0.0.0-local";
         in property<string> my-upgrade-version: "";
         property<bool> show-password: false;
@@ -509,10 +515,10 @@ slint::slint! {
                     padding-left: 3px;
                     spacing: 3px;
                     alignment: start;
-                    copyright := Text {
+                    Text {
                         font-size: 10px;
                         color: white;
-                        text: "© 2022-2024 David Caldwell";
+                        text: copyright;
                     }
                     octocat := Image {
                         colorize: white;
