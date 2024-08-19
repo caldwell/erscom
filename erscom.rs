@@ -512,7 +512,7 @@ slint::slint! {
                     copyright := Text {
                         font-size: 10px;
                         color: white;
-                        text: "© 2022 David Caldwell";
+                        text: "© 2022-2024 David Caldwell";
                     }
                     octocat := Image {
                         colorize: white;
